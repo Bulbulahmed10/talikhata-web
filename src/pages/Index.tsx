@@ -4,8 +4,11 @@ import RecentTransactions from "@/components/Dashboard/RecentTransactions";
 import CustomersList from "@/components/Dashboard/CustomersList";
 import QuickActionButtons from "@/components/QuickActions/QuickActionButtons";
 import { TrendingUp, TrendingDown, Users, AlertCircle } from "lucide-react";
+import { useStats } from "@/hooks/useStats";
 
 const Index = () => {
+  const { stats, loading } = useStats();
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -24,31 +27,31 @@ const Index = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="মোট পাওনা"
-            amount={15000}
+            amount={loading ? 0 : stats.totalGiven}
             icon={<TrendingUp className="h-6 w-6" />}
             variant="success"
-            subtitle="৮ জন গ্রাহকের কাছে"
+            subtitle={loading ? "লোড হচ্ছে..." : `${stats.customersWithDue} জন গ্রাহকের কাছে`}
           />
           <StatsCard
             title="মোট দেনা"
-            amount={8000}
+            amount={loading ? 0 : stats.totalReceived}
             icon={<TrendingDown className="h-6 w-6" />}
             variant="warning"
-            subtitle="৩ জন গ্রাহকের কাছে"
+            subtitle={loading ? "লোড হচ্ছে..." : "প্রাপ্ত অর্থ"}
           />
           <StatsCard
             title="মোট গ্রাহক"
-            amount={45}
+            amount={loading ? 0 : stats.totalCustomers}
             icon={<Users className="h-6 w-6" />}
             variant="default"
-            subtitle="সক্রিয় গ্রাহক"
+            subtitle={loading ? "লোড হচ্ছে..." : "সক্রিয় গ্রাহক"}
           />
           <StatsCard
-            title="দেরি পেমেন্ট"
-            amount={5}
+            title="বকেয়া গ্রাহক"
+            amount={loading ? 0 : stats.customersWithDue}
             icon={<AlertCircle className="h-6 w-6" />}
             variant="destructive"
-            subtitle="রিমাইন্ডার প্রয়োজন"
+            subtitle={loading ? "লোড হচ্ছে..." : "রিমাইন্ডার প্রয়োজন"}
           />
         </div>
 
