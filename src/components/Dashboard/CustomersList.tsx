@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Phone, Loader2 } from "lucide-react";
 import { useCustomers } from "@/hooks/useCustomers";
+import { useNavigate } from "react-router-dom";
 
 const CustomersList = () => {
   const { customers, loading } = useCustomers();
+  const navigate = useNavigate();
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('bn-BD', {
@@ -37,7 +39,7 @@ const CustomersList = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">গ্রাহক তালিকা</CardTitle>
-        <Button size="sm" className="gap-1">
+        <Button size="sm" className="gap-1" onClick={() => navigate("/customers")}>
           <Plus className="h-4 w-4" />
           নতুন গ্রাহক
         </Button>
@@ -53,8 +55,12 @@ const CustomersList = () => {
             <p className="text-sm">নতুন গ্রাহক যোগ করুন</p>
           </div>
         ) : (
-          customers.map((customer) => (
-            <div key={customer.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+          customers.slice(0, 5).map((customer) => (
+            <div 
+              key={customer.id} 
+              className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => navigate(`/customers/${customer.id}`)}
+            >
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarFallback className="bg-primary/10 text-primary">
@@ -90,7 +96,7 @@ const CustomersList = () => {
             </div>
           ))
         )}
-        <Button variant="outline" className="w-full mt-4">
+        <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/customers")}>
           সকল গ্রাহক দেখুন
         </Button>
       </CardContent>

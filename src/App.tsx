@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,18 @@ const App = () => {
           <Route 
             path="/" 
             element={user ? <Index /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/customers" 
+            element={user ? <Customers /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/customers/:id" 
+            element={user ? <CustomerDetail /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/reports" 
+            element={user ? <Reports /> : <Navigate to="/auth" replace />} 
           />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

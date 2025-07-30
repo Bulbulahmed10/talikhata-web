@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingDown, TrendingUp, Loader2 } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useNavigate } from "react-router-dom";
 
 const RecentTransactions = () => {
   const { transactions, loading } = useTransactions();
+  const navigate = useNavigate();
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('bn-BD', {
@@ -26,7 +28,7 @@ const RecentTransactions = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">সাম্প্রতিক লেনদেন</CardTitle>
-        <Button size="sm" className="gap-1">
+        <Button size="sm" className="gap-1" onClick={() => navigate("/customers")}>
           <Plus className="h-4 w-4" />
           নতুন
         </Button>
@@ -42,8 +44,12 @@ const RecentTransactions = () => {
             <p className="text-sm">নতুন লেনদেন যোগ করুন</p>
           </div>
         ) : (
-          transactions.map((transaction) => (
-            <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+          transactions.slice(0, 5).map((transaction) => (
+            <div 
+              key={transaction.id} 
+              className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => navigate(`/customers/${transaction.customer_id}`)}
+            >
               <div className="flex items-center gap-3">
                 <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
                   transaction.type === "received" 
@@ -72,7 +78,7 @@ const RecentTransactions = () => {
             </div>
           ))
         )}
-        <Button variant="outline" className="w-full mt-4">
+        <Button variant="outline" className="w-full mt-4" onClick={() => navigate("/reports")}>
           সকল লেনদেন দেখুন
         </Button>
       </CardContent>

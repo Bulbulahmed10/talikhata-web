@@ -1,73 +1,152 @@
-# Welcome to your Lovable project
+# তালিখাতা ওয়েব (TallyKhata Web)
 
-## Project info
+A comprehensive business ledger application for Bangladeshi shopkeepers, built with React, TypeScript, and Supabase.
 
-**URL**: https://lovable.dev/projects/357210fd-9e90-4928-bd8b-437678a18c94
+## 🌟 Features
 
-## How can I edit this code?
+- **User Authentication** - Email/password login with Supabase Auth
+- **Customer Management** - Add, edit, delete customers with search
+- **Transaction Recording** - Track given/received amounts (দিলাম/পেলাম)
+- **Business Reports** - Detailed analytics with date filtering
+- **Mobile Responsive** - Works perfectly on all devices
+- **Bangla Language** - Complete UI in Bengali
+- **Real-time Updates** - Live data synchronization
 
-There are several ways of editing your application.
+## 🚀 Quick Start
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/357210fd-9e90-4928-bd8b-437678a18c94) and start prompting.
+- Node.js 18+ and npm
+- Supabase account (for backend)
 
-Changes made via Lovable will be committed automatically to this repo.
+### Local Development
 
-**Use your preferred IDE**
+```bash
+# Clone the repository
+git clone <YOUR_REPO_URL>
+cd talikhata-web
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Install dependencies
+npm install
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🛠️ Tech Stack
 
-**Use GitHub Codespaces**
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI Components**: shadcn/ui + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Real-time)
+- **State Management**: React Query
+- **Routing**: React Router DOM
+- **Icons**: Lucide React
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📱 Features Overview
 
-## What technologies are used for this project?
+### Dashboard
+- Business statistics overview
+- Recent transactions
+- Customer list with balances
+- Quick action buttons
 
-This project is built with:
+### Customer Management
+- Add new customers with name and phone
+- Edit customer information
+- Delete customers with confirmation
+- Search customers by name or phone
+- View customer balance status
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Transaction System
+- Record given/received amounts
+- Add notes and dates
+- Automatic balance calculation
+- Transaction history per customer
 
-## How can I deploy this project?
+### Reports & Analytics
+- Date range filtering
+- Business statistics
+- Customer-wise reports
+- CSV export functionality
 
-Simply open [Lovable](https://lovable.dev/projects/357210fd-9e90-4928-bd8b-437678a18c94) and click on Share -> Publish.
+## 🌐 Deployment
 
-## Can I connect a custom domain to my Lovable project?
+### Deploy to Vercel
 
-Yes, you can!
+1. **Push to GitHub**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+2. **Connect to Vercel**
+   - Go to [vercel.com](https://vercel.com)
+   - Sign up/Login with GitHub
+   - Click "New Project"
+   - Import your GitHub repository
+   - Vercel will auto-detect the Vite configuration
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+3. **Environment Variables**
+   Add your Supabase environment variables in Vercel:
+   - Go to Project Settings → Environment Variables
+   - Add your Supabase URL and keys
+
+4. **Deploy**
+   - Vercel will automatically build and deploy
+   - Your app will be live at `https://your-project.vercel.app`
+
+### Environment Variables
+
+Create a `.env` file for local development:
+
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## 📊 Database Schema
+
+The app uses Supabase with the following tables:
+- `profiles` - User business information
+- `customers` - Customer data with balances
+- `transactions` - Transaction records
+
+## 🔧 Development
+
+### Available Scripts
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run lint         # Run ESLint
+```
+
+### Project Structure
+
+```
+src/
+├── components/      # UI components
+├── hooks/          # Custom React hooks
+├── pages/          # Page components
+├── integrations/   # Supabase integration
+└── lib/           # Utility functions
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For support, please open an issue on GitHub or contact the development team.

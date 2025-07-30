@@ -20,21 +20,38 @@ export const useStats = () => {
   const fetchStats = async () => {
     setLoading(true);
 
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      setStats({
+        totalGiven: 0,
+        totalReceived: 0,
+        totalCustomers: 0,
+        customersWithDue: 0,
+      });
+      setLoading(false);
+      return;
+    }
+
     // Get transaction stats
     const { data: givenData } = await supabase
       .from('transactions')
       .select('amount')
-      .eq('type', 'given');
+      .eq('type', 'given')
+      .eq('user_id', user.id);
 
     const { data: receivedData } = await supabase
       .from('transactions')
       .select('amount')
-      .eq('type', 'received');
+      .eq('type', 'received')
+      .eq('user_id', user.id);
 
     // Get customer stats
     const { data: customersData } = await supabase
       .from('customers')
-      .select('due_amount');
+      .select('due_amount')
+      .eq('user_id', user.id);
 
     if (givenData && receivedData && customersData) {
       const totalGiven = givenData.reduce((sum, t) => sum + Number(t.amount), 0);

@@ -15,9 +15,20 @@ export const useCustomers = () => {
 
   const fetchCustomers = async () => {
     setLoading(true);
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      setCustomers([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('customers')
       .select('*')
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(10);
 

@@ -1,50 +1,62 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, TrendingUp, TrendingDown, MessageSquare, FileText, QrCode } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const QuickActionButtons = () => {
+  const navigate = useNavigate();
+
   const actions = [
     {
       icon: <TrendingUp className="h-5 w-5" />,
       label: "পেয়েছি",
       description: "টাকা পেয়েছি",
       variant: "default" as const,
-      color: "success"
+      color: "success",
+      onClick: () => navigate("/customers")
     },
     {
       icon: <TrendingDown className="h-5 w-5" />,
       label: "দিয়েছি", 
       description: "টাকা দিয়েছি",
       variant: "secondary" as const,
-      color: "warning"
+      color: "warning",
+      onClick: () => navigate("/customers")
     },
     {
       icon: <Plus className="h-5 w-5" />,
       label: "নতুন গ্রাহক",
       description: "গ্রাহক যোগ করুন",
       variant: "outline" as const,
-      color: "primary"
+      color: "primary",
+      onClick: () => navigate("/customers")
     },
     {
       icon: <MessageSquare className="h-5 w-5" />,
       label: "রিমাইন্ডার",
       description: "এসএমএস পাঠান",
       variant: "outline" as const,
-      color: "accent"
+      color: "accent",
+      onClick: () => navigate("/customers")
     },
     {
       icon: <FileText className="h-5 w-5" />,
       label: "রিপোর্ট",
       description: "হিসাব দেখুন",
       variant: "outline" as const,
-      color: "muted"
+      color: "muted",
+      onClick: () => navigate("/reports")
     },
     {
       icon: <QrCode className="h-5 w-5" />,
       label: "QR কোড",
       description: "পেমেন্ট নিন",
       variant: "outline" as const,
-      color: "primary"
+      color: "primary",
+      onClick: () => {
+        // TODO: Implement QR code functionality
+        console.log("QR Code feature coming soon!");
+      }
     }
   ];
 
@@ -57,6 +69,7 @@ const QuickActionButtons = () => {
               key={index}
               variant={action.variant}
               className="h-auto p-4 flex flex-col items-center gap-2 text-center"
+              onClick={action.onClick}
             >
               <div className={`h-10 w-10 rounded-full bg-${action.color}/10 flex items-center justify-center text-${action.color}`}>
                 {action.icon}
