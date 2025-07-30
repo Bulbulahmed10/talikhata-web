@@ -37,6 +37,29 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "TallyKhata Dashboard - Desktop View"
+    },
+    {
+      "src": "/screenshots/mobile-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "TallyKhata Dashboard - Mobile View"
+    },
+    {
+      "src": "/screenshots/tablet-wide.png",
+      "sizes": "1024x768",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "TallyKhata Dashboard - Tablet View"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Add Customer",
