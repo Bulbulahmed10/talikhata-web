@@ -6,6 +6,9 @@ import { Toaster } from '@/components/ui/toaster'
 import App from './App.tsx'
 import './index.css'
 
+// Initialize PWA
+import './lib/pwa'
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>

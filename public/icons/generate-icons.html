@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate TallyKhata Icons</title>
+</head>
+<body>
+    <h1>TallyKhata Icon Generator</h1>
+    <p>This page helps generate PNG icons for the PWA. Right-click on each icon and save as PNG.</p>
+    
+    <div style="margin: 20px;">
+        <h2>192x192 Icon</h2>
+        <canvas id="canvas192" width="192" height="192" style="border: 1px solid #ccc;"></canvas>
+        <button onclick="downloadIcon(192)">Download 192x192</button>
+    </div>
+    
+    <div style="margin: 20px;">
+        <h2>512x512 Icon</h2>
+        <canvas id="canvas512" width="512" height="512" style="border: 1px solid #ccc;"></canvas>
+        <button onclick="downloadIcon(512)">Download 512x512</button>
+    </div>
+
+    <script>
+        function generateIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background circle
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // White rectangle for ledger
+            const rectSize = size * 0.5;
+            const rectX = (size - rectSize) / 2;
+            const rectY = (size - rectSize) / 2;
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+            ctx.roundRect(rectX, rectY, rectSize, rectSize, size * 0.02);
+            ctx.fill();
+            
+            // Draw ledger lines
+            ctx.fillStyle = '#4CAF50';
+            const lineHeight = rectSize / 12;
+            const startY = rectY + lineHeight;
+            
+            for (let i = 0; i < 10; i++) {
+                const y = startY + i * lineHeight;
+                const width = rectSize * (0.6 + Math.random() * 0.3);
+                const x = rectX + (rectSize - width) / 2;
+                
+                ctx.fillRect(x, y, width, lineHeight * 0.3);
+            }
+            
+            // Add plus and minus symbols
+            const symbolSize = size * 0.06;
+            const symbolY = rectY + rectSize + symbolSize;
+            
+            // Plus symbol
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath();
+            ctx.arc(size * 0.4, symbolY, symbolSize, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.01;
+            ctx.beginPath();
+            ctx.moveTo(size * 0.4, symbolY - symbolSize * 0.5);
+            ctx.lineTo(size * 0.4, symbolY + symbolSize * 0.5);
+            ctx.moveTo(size * 0.4 - symbolSize * 0.5, symbolY);
+            ctx.lineTo(size * 0.4 + symbolSize * 0.5, symbolY);
+            ctx.stroke();
+            
+            // Minus symbol
+            ctx.fillStyle = '#FF5722';
+            ctx.beginPath();
+            ctx.arc(size * 0.6, symbolY, symbolSize, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.6 - symbolSize * 0.5, symbolY);
+            ctx.lineTo(size * 0.6 + symbolSize * 0.5, symbolY);
+            ctx.stroke();
+        }
+        
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const link = document.createElement('a');
+            link.download = `icon-${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Generate icons on load
+        window.onload = function() {
+            generateIcon(192);
+            generateIcon(512);
+        };
+    </script>
+</body>
+</html> 

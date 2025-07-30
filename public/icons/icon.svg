@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#4CAF50"/>
+  
+  <!-- Calculator/Book Icon -->
+  <rect x="128" y="128" width="256" height="256" rx="16" fill="white" opacity="0.9"/>
+  
+  <!-- Lines representing ledger entries -->
+  <rect x="144" y="160" width="224" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="180" width="180" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="200" width="200" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="220" width="160" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="240" width="220" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="260" width="140" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="280" width="190" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="300" width="170" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="320" width="210" height="4" fill="#4CAF50" rx="2"/>
+  <rect x="144" y="340" width="150" height="4" fill="#4CAF50" rx="2"/>
+  
+  <!-- Plus and Minus symbols for transactions -->
+  <circle cx="200" cy="380" r="12" fill="#4CAF50"/>
+  <path d="M200 374v12M194 380h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <circle cx="280" cy="380" r="12" fill="#FF5722"/>
+  <path d="M280 374v12M274 380h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- TallyKhata Text -->
+  <text x="256" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">তালিখাতা</text>
+</svg> 
