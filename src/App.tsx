@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Reports from "./pages/Reports";
+import PWAInstallButton from "./components/PWAInstallButton";
+import PWAStatus from "./components/PWAStatus";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,12 @@ const App = () => {
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        
+        {/* PWA Install Button - Always visible */}
+        <PWAInstallButton />
+        
+        {/* PWA Status Indicator */}
+        <PWAStatus />
       </TooltipProvider>
     </QueryClientProvider>
   );
