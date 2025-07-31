@@ -2,23 +2,20 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Phone, Edit, Trash2, Loader2, Search, ArrowLeft } from "lucide-react";
+import { Plus, Phone, Edit, Trash2, Search, ArrowLeft, User, Mail, MapPin } from "lucide-react";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import CustomerForm from "@/components/CustomerForm";
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "" });
   
   const { customers, loading: customersLoading, refetch } = useCustomers();
   const { toast } = useToast();
@@ -41,86 +38,16 @@ const Customers = () => {
     customer.phone?.includes(searchTerm)
   );
 
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      const { error } = await supabase
-        .from('customers')
-        .insert([{
-          ...newCustomer,
-          user_id: user.id
-        }]);
-
-      if (error) throw error;
-
-      toast({
-        title: "সফল!",
-        description: "নতুন গ্রাহক যোগ করা হয়েছে।",
-      });
-      
-      setNewCustomer({ name: "", phone: "" });
-      setShowAddDialog(false);
-      refetch();
-    } catch (error: any) {
-      toast({
-        title: "ত্রুটি",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-
-    setLoading(false);
+  const handleCustomerSuccess = () => {
+    setShowAddDialog(false);
+    setEditingCustomer(null);
+    refetch();
   };
 
-  const handleUpdateCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      const { error } = await supabase
-        .from('customers')
-        .update({
-          name: editingCustomer.name,
-          phone: editingCustomer.phone,
-        })
-        .eq('id', editingCustomer.id)
-        .eq('user_id', user.id); // Ensure user can only update their own customers
-
-      if (error) throw error;
-
-      toast({
-        title: "সফল!",
-        description: "গ্রাহকের তথ্য আপডেট করা হয়েছে।",
-      });
-      
-      setEditingCustomer(null);
-      refetch();
-    } catch (error: any) {
-      toast({
-        title: "ত্রুটি",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-
-    setLoading(false);
+  const handleEditCustomer = (customer: any) => {
+    setEditingCustomer(customer);
   };
+
 
   const handleDeleteCustomer = async (customerId: string) => {
     setLoading(true);
@@ -174,48 +101,13 @@ const Customers = () => {
             </div>
           </div>
           
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                নতুন গ্রাহক
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>নতুন গ্রাহক যোগ করুন</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddCustomer} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">গ্রাহকের নাম</Label>
-                  <Input
-                    id="name"
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">ফোন নম্বর</Label>
-                  <Input
-                    id="phone"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                    placeholder="০১৭১২৩৪৫৬৭৮"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={loading} className="flex-1">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    যোগ করুন
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
-                    বাতিল
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="gap-2" 
+            onClick={() => setShowAddDialog(true)}
+          >
+            <Plus className="h-4 w-4" />
+            নতুন গ্রাহক
+          </Button>
         </div>
 
         {/* Search */}
@@ -247,66 +139,47 @@ const Customers = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar>
+                        <AvatarImage src={customer.photo_url} />
                         <AvatarFallback className="bg-primary/10 text-primary">
-                          {getInitials(customer.name)}
+                          {customer.photo_url ? (
+                            <User className="h-4 w-4" />
+                          ) : (
+                            getInitials(customer.name)
+                          )}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{customer.name}</CardTitle>
-                        {customer.phone && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {customer.phone}
-                          </div>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg truncate">{customer.name}</CardTitle>
+                        <div className="space-y-1">
+                          {customer.phone && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              {customer.phone}
+                            </div>
+                          )}
+                          {customer.email && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Mail className="h-3 w-3" />
+                              <span className="truncate">{customer.email}</span>
+                            </div>
+                          )}
+                          {customer.address && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <MapPin className="h-3 w-3" />
+                              <span className="truncate">{customer.address}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingCustomer(customer)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>গ্রাহক সম্পাদনা করুন</DialogTitle>
-                          </DialogHeader>
-                          <form onSubmit={handleUpdateCustomer} className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="editName">গ্রাহকের নাম</Label>
-                              <Input
-                                id="editName"
-                                value={editingCustomer?.name || ""}
-                                onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="editPhone">ফোন নম্বর</Label>
-                              <Input
-                                id="editPhone"
-                                value={editingCustomer?.phone || ""}
-                                onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
-                                placeholder="০১৭১২৩৪৫৬৭৮"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button type="submit" disabled={loading} className="flex-1">
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                আপডেট করুন
-                              </Button>
-                              <Button type="button" variant="outline" onClick={() => setEditingCustomer(null)}>
-                                বাতিল
-                              </Button>
-                            </div>
-                          </form>
-                        </DialogContent>
-                      </Dialog>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditCustomer(customer)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -365,6 +238,22 @@ const Customers = () => {
           )}
         </div>
       </div>
+
+      {/* Customer Form Dialogs */}
+      <CustomerForm
+        isOpen={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        onSuccess={handleCustomerSuccess}
+        mode="add"
+      />
+      
+      <CustomerForm
+        isOpen={!!editingCustomer}
+        onClose={() => setEditingCustomer(null)}
+        customer={editingCustomer}
+        onSuccess={handleCustomerSuccess}
+        mode="edit"
+      />
     </div>
   );
 };
