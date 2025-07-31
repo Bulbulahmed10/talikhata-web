@@ -1,4 +1,4 @@
-const CACHE_NAME = 'talikhata-v1.0.0';
+const CACHE_NAME = 'talikhata-v1.0.1';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -20,6 +20,9 @@ self.addEventListener('install', (event) => {
       .then(() => {
         console.log('Service Worker: Files cached');
         return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('Service Worker: Cache failed', error);
       })
   );
 });
@@ -56,6 +59,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Supabase API calls for now (they should be handled by the app)
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -80,6 +88,9 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
+              })
+              .catch((error) => {
+                console.error('Service Worker: Cache put failed', error);
               });
 
             return response;
@@ -144,6 +155,11 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
       clients.openWindow('/')
     );
+  } else {
+    // Default action - open the app
+    event.waitUntil(
+      clients.openWindow('/')
+    );
   }
 });
 
@@ -165,4 +181,13 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Error handling
+self.addEventListener('error', (event) => {
+  console.error('Service Worker: Error', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('Service Worker: Unhandled rejection', event.reason);
 }); 

@@ -12,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 class PWAService {
   private deferredPrompt: BeforeInstallPromptEvent | null = null;
   private installButton: HTMLElement | null = null;
+  private isInstalled: boolean = false;
 
   constructor() {
     this.init();
@@ -21,13 +22,22 @@ class PWAService {
     this.registerServiceWorker();
     this.setupInstallPrompt();
     this.setupOfflineDetection();
+    this.checkInstallStatus();
+  }
+
+  // Check if app is already installed
+  private checkInstallStatus() {
+    this.isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                       (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
   }
 
   // Register Service Worker
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register('/service-worker.js');
+        const registration = await navigator.serviceWorker.register('/service-worker.js', {
+          scope: '/'
+        });
         console.log('Service Worker registered successfully:', registration);
 
         // Handle updates
@@ -67,8 +77,15 @@ class PWAService {
 
     window.addEventListener('appinstalled', () => {
       console.log('App installed successfully');
+      this.isInstalled = true;
       this.hideInstallButton();
       this.deferredPrompt = null;
+      this.showInstallSuccessNotification();
+    });
+
+    // Check for standalone mode on load
+    window.addEventListener('load', () => {
+      this.checkInstallStatus();
     });
   }
 
@@ -87,6 +104,11 @@ class PWAService {
 
   // Show Install Button
   public showInstallButton() {
+    // Don't show if already installed
+    if (this.isInstalled) {
+      return;
+    }
+
     // Create install button if it doesn't exist
     if (!this.installButton) {
       this.installButton = document.createElement('div');
@@ -109,12 +131,19 @@ class PWAService {
           align-items: center;
           gap: 8px;
           transition: all 0.3s ease;
+          animation: slideIn 0.3s ease;
         ">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
           অ্যাপ ইনস্টল করুন
         </div>
+        <style>
+          @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+        </style>
       `;
       
       this.installButton.addEventListener('click', () => {
@@ -143,6 +172,7 @@ class PWAService {
         
         if (outcome === 'accepted') {
           console.log('App installation accepted');
+          this.isInstalled = true;
         } else {
           console.log('App installation dismissed');
         }
@@ -151,8 +181,14 @@ class PWAService {
         this.hideInstallButton();
       } catch (error) {
         console.error('Install prompt failed:', error);
+        this.showToast('ইন্সটল ত্রুটি', 'ইন্সটল করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
       }
     }
+  }
+
+  // Show Install Success Notification
+  private showInstallSuccessNotification() {
+    this.showToast('ইন্সটল সফল', 'তালিখাতা সফলভাবে ইন্সটল হয়েছে!', 'success');
   }
 
   // Show Update Notification
@@ -171,6 +207,7 @@ class PWAService {
         z-index: 1000;
         font-family: system-ui, -apple-system, sans-serif;
         max-width: 300px;
+        animation: slideIn 0.3s ease;
       ">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -193,6 +230,12 @@ class PWAService {
           আপডেট করুন
         </button>
       </div>
+      <style>
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
     `;
     
     document.body.appendChild(notification);
@@ -236,10 +279,17 @@ class PWAService {
         font-size: 14px;
         max-width: 300px;
         text-align: center;
+        animation: slideIn 0.3s ease;
       ">
         <strong>${title}</strong><br>
         ${message}
       </div>
+      <style>
+        @keyframes slideIn {
+          from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+          to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+      </style>
     `;
     
     document.body.appendChild(toast);
@@ -253,19 +303,25 @@ class PWAService {
   }
 
   // Check if app is installed
-  public isInstalled(): boolean {
-    return window.matchMedia('(display-mode: standalone)').matches ||
-           (window.navigator as any).standalone === true;
+  public isAppInstalled(): boolean {
+    return this.isInstalled || 
+           window.matchMedia('(display-mode: standalone)').matches ||
+           (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
   }
 
   // Get PWA status
   public getPWAStatus() {
     return {
-      isInstalled: this.isInstalled(),
+      isInstalled: this.isAppInstalled(),
       isOnline: navigator.onLine,
       hasServiceWorker: 'serviceWorker' in navigator,
       hasInstallPrompt: this.deferredPrompt !== null
     };
+  }
+
+  // Force check install status
+  public refreshInstallStatus() {
+    this.checkInstallStatus();
   }
 }
 

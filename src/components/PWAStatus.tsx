@@ -1,116 +1,123 @@
-import { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Wifi, WifiOff, Download, CheckCircle, AlertCircle } from "lucide-react";
 
-const PWAStatus = () => {
-  const [status, setStatus] = useState<'checking' | 'ready' | 'installed' | 'not-supported'>('checking');
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+interface PWAStatusProps {
+  showDetails?: boolean;
+  className?: string;
+}
+
+const PWAStatus = ({ showDetails = false, className = "" }: PWAStatusProps) => {
+  const [status, setStatus] = useState({
+    isInstalled: false,
+    isOnline: true,
+    hasServiceWorker: false,
+    hasInstallPrompt: false
+  });
 
   useEffect(() => {
-    const checkPWAStatus = () => {
-      // Check if service worker is supported
-      if (!('serviceWorker' in navigator)) {
-        setStatus('not-supported');
-        return;
-      }
-
-      // Check if app is already installed
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                          (window.navigator as any).standalone === true;
+    const checkStatus = () => {
+      const isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                         (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
       
-      if (isStandalone) {
-        setStatus('installed');
-      } else {
-        setStatus('ready');
-      }
+      setStatus({
+        isInstalled,
+        isOnline: navigator.onLine,
+        hasServiceWorker: 'serviceWorker' in navigator,
+        hasInstallPrompt: false // This will be updated by the install button component
+      });
     };
 
-    // Check online status
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
+    checkStatus();
+    
+    // Listen for online/offline events
+    const handleOnline = () => setStatus(prev => ({ ...prev, isOnline: true }));
+    const handleOffline = () => setStatus(prev => ({ ...prev, isOnline: false }));
+    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    // Initial check
-    checkPWAStatus();
-
-    // Check periodically
-    const interval = setInterval(checkPWAStatus, 5000);
-
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      clearInterval(interval);
     };
   }, []);
 
-  const getStatusInfo = () => {
-    switch (status) {
-      case 'checking':
-        return {
-          icon: <AlertCircle className="h-3 w-3" />,
-          text: 'চেক হচ্ছে...',
-          variant: 'secondary' as const,
-          color: 'text-yellow-600'
-        };
-      case 'ready':
-        return {
-          icon: <Download className="h-3 w-3" />,
-          text: 'ইনস্টল প্রস্তুত',
-          variant: 'default' as const,
-          color: 'text-green-600'
-        };
-      case 'installed':
-        return {
-          icon: <CheckCircle className="h-3 w-3" />,
-          text: 'ইনস্টল করা হয়েছে',
-          variant: 'default' as const,
-          color: 'text-green-600'
-        };
-      case 'not-supported':
-        return {
-          icon: <AlertCircle className="h-3 w-3" />,
-          text: 'PWA সমর্থিত নয়',
-          variant: 'destructive' as const,
-          color: 'text-red-600'
-        };
-      default:
-        return {
-          icon: <AlertCircle className="h-3 w-3" />,
-          text: 'অজানা অবস্থা',
-          variant: 'secondary' as const,
-          color: 'text-gray-600'
-        };
-    }
-  };
-
-  const statusInfo = getStatusInfo();
-
-  // Only show in development or if there's an issue
-  if (status === 'ready' && isOnline && !import.meta.env.DEV) {
-    return null;
+  if (!showDetails) {
+    return (
+      <div className={`flex items-center gap-1 ${className}`}>
+        {status.isInstalled && (
+          <Badge variant="secondary" className="text-xs">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            ইন্সটলড
+          </Badge>
+        )}
+        {!status.isOnline && (
+          <Badge variant="destructive" className="text-xs">
+            <WifiOff className="w-3 h-3 mr-1" />
+            অফলাইন
+          </Badge>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="fixed top-4 left-4 z-50">
-      <Badge 
-        variant={statusInfo.variant}
-        className={`flex items-center gap-1 text-xs ${statusInfo.color}`}
-      >
-        {statusInfo.icon}
-        {statusInfo.text}
-      </Badge>
+    <div className={`flex flex-col gap-2 p-3 bg-muted rounded-lg ${className}`}>
+      <h4 className="text-sm font-medium">PWA স্ট্যাটাস</h4>
       
-      {!isOnline && (
-        <Badge 
-          variant="destructive"
-          className="flex items-center gap-1 text-xs mt-1"
-        >
-          <AlertCircle className="h-3 w-3" />
-          অফলাইন
-        </Badge>
-      )}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs">ইন্সটলেশন:</span>
+          <Badge variant={status.isInstalled ? "default" : "secondary"} className="text-xs">
+            {status.isInstalled ? (
+              <>
+                <CheckCircle className="w-3 h-3 mr-1" />
+                ইন্সটলড
+              </>
+            ) : (
+              <>
+                <Download className="w-3 h-3 mr-1" />
+                ইন্সটল নয়
+              </>
+            )}
+          </Badge>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-xs">সংযোগ:</span>
+          <Badge variant={status.isOnline ? "default" : "destructive"} className="text-xs">
+            {status.isOnline ? (
+              <>
+                <Wifi className="w-3 h-3 mr-1" />
+                অনলাইন
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3 mr-1" />
+                অফলাইন
+              </>
+            )}
+          </Badge>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-xs">সার্ভিস ওয়ার্কার:</span>
+          <Badge variant={status.hasServiceWorker ? "default" : "secondary"} className="text-xs">
+            {status.hasServiceWorker ? (
+              <>
+                <CheckCircle className="w-3 h-3 mr-1" />
+                সক্রিয়
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-3 h-3 mr-1" />
+                অসমর্থিত
+              </>
+            )}
+          </Badge>
+        </div>
+      </div>
     </div>
   );
 };

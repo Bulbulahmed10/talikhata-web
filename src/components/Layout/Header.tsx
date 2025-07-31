@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import PWAInstallButton from "@/components/PWAInstallButton";
 
 interface Profile {
   business_name: string;
@@ -101,6 +102,15 @@ const Header = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* PWA Install Button */}
+          <PWAInstallButton 
+            variant="default"
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            showText={true}
+            showInstalledStatus={true}
+          />
+          
           <Button variant="ghost" size="sm">
             <Bell className="h-5 w-5" />
           </Button>
