@@ -5,21 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send, Mail, MapPin, User, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import CustomerForm from "@/components/CustomerForm";
 
 interface Customer {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  description: string | null;
+  photo_url: string | null;
   due_amount: number;
   created_at: string;
   updated_at: string;
+  send_email_notifications: boolean;
+  send_sms_notifications: boolean;
 }
 
 interface Transaction {
@@ -39,8 +46,9 @@ const CustomerDetail = () => {
   
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newTransaction, setNewTransaction] = useState({
     type: "given" as "given" | "received",
     amount: "",
@@ -91,7 +99,15 @@ const CustomerDetail = () => {
         .single();
 
       if (customerError) throw customerError;
-      setCustomer(customerData);
+      setCustomer({
+        ...customerData,
+        email: (customerData as any).email || null,
+        address: (customerData as any).address || null,
+        description: (customerData as any).description || null,
+        photo_url: (customerData as any).photo_url || null,
+        send_email_notifications: (customerData as any).send_email_notifications ?? true,
+        send_sms_notifications: (customerData as any).send_sms_notifications ?? false,
+      } as Customer);
 
       // Fetch transactions
       const { data: transactionsData, error: transactionsError } = await supabase
@@ -168,6 +184,11 @@ const CustomerDetail = () => {
     setLoading(false);
   };
 
+  const handleCustomerSuccess = () => {
+    setShowEditDialog(false);
+    fetchCustomerData(); // Refresh customer data
+  };
+
   const handleSendReminder = async () => {
     if (!customer?.phone) {
       toast({
@@ -216,24 +237,36 @@ const CustomerDetail = () => {
               ফিরে যান
             </Button>
             <div className="flex items-center gap-4">
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {getInitials(customer.name)}
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={customer.photo_url || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                  {customer.photo_url ? <User className="h-8 w-8" /> : getInitials(customer.name)}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
-                {customer.phone && (
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    {customer.phone}
-                  </div>
-                )}
+                <div className="space-y-1">
+                  {customer.phone && (
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      {customer.phone}
+                    </div>
+                  )}
+                  {customer.email && (
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      {customer.email}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowEditDialog(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              সম্পাদনা করুন
+            </Button>
             {customer.due_amount > 0 && customer.phone && (
               <Button variant="outline" onClick={handleSendReminder}>
                 <Send className="h-4 w-4 mr-2" />
@@ -319,6 +352,35 @@ const CustomerDetail = () => {
           </div>
         </div>
 
+        {/* Customer Information */}
+        {(customer.address || customer.description) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>গ্রাহকের তথ্য</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {customer.address && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">ঠিকানা:</span>
+                  </div>
+                  <p className="text-muted-foreground pl-6">{customer.address}</p>
+                </div>
+              )}
+              {customer.description && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">বিবরণ:</span>
+                  </div>
+                  <p className="text-muted-foreground pl-6">{customer.description}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Balance Card */}
         <Card>
           <CardHeader>
@@ -399,6 +461,15 @@ const CustomerDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Customer Dialog */}
+      <CustomerForm
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        customer={customer}
+        onSuccess={handleCustomerSuccess}
+        mode="edit"
+      />
     </div>
   );
 };
