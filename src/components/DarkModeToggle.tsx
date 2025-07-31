@@ -4,7 +4,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 
 interface DarkModeToggleProps {
   variant?: "default" | "outline" | "ghost";
-  size?: "sm" | "md" | "lg";
+  size?: "default" | "sm" | "lg" | "icon";
   className?: string;
 }
 

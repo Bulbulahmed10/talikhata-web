@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Customer {
   id: string;
@@ -34,6 +35,7 @@ const CustomerDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -71,12 +73,21 @@ const CustomerDetail = () => {
     if (!id) return;
     
     setLoading(true);
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       // Fetch customer details
       const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .select('*')
         .eq('id', id)
+        .eq('user_id', user.id)
         .single();
 
       if (customerError) throw customerError;
@@ -87,10 +98,11 @@ const CustomerDetail = () => {
         .from('transactions')
         .select('*')
         .eq('customer_id', id)
+        .eq('user_id', user.id)
         .order('date', { ascending: false });
 
       if (transactionsError) throw transactionsError;
-      setTransactions(transactionsData || []);
+      setTransactions((transactionsData || []) as Transaction[]);
     } catch (error: any) {
       toast({
         title: "ত্রুটি",
@@ -102,8 +114,10 @@ const CustomerDetail = () => {
   };
 
   useEffect(() => {
-    fetchCustomerData();
-  }, [id]);
+    if (user && !authLoading) {
+      fetchCustomerData();
+    }
+  }, [id, user, authLoading]);
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +184,7 @@ const CustomerDetail = () => {
     });
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

@@ -15,7 +15,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 interface PWAInstallButtonProps {
   variant?: "default" | "outline" | "ghost";
-  size?: "sm" | "md" | "lg";
+  size?: "default" | "sm" | "lg" | "icon";
   className?: string;
   showText?: boolean;
   showInstalledStatus?: boolean;

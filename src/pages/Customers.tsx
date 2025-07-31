@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Phone, Edit, Trash2, Search, ArrowLeft, User, Mail, MapPin } from "lucide-react";
+import { Plus, Phone, Edit, Trash2, Search, ArrowLeft, User, Mail, MapPin, Loader2 } from "lucide-react";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import CustomerForm from "@/components/CustomerForm";
+import { useAuth } from "@/hooks/useAuth";
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,6 +21,7 @@ const Customers = () => {
   const { customers, loading: customersLoading, refetch } = useCustomers();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('bn-BD', {
@@ -50,7 +52,6 @@ const Customers = () => {
 
 
   const handleDeleteCustomer = async (customerId: string) => {
-    setLoading(true);
 
     try {
       // Get current user
@@ -81,8 +82,6 @@ const Customers = () => {
         variant: "destructive",
       });
     }
-
-    setLoading(false);
   };
 
   return (
@@ -123,7 +122,7 @@ const Customers = () => {
 
         {/* Customers Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {customersLoading ? (
+          {authLoading || customersLoading ? (
             <div className="col-span-full flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
@@ -138,14 +137,9 @@ const Customers = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={customer.photo_url} />
+                       <Avatar>
                         <AvatarFallback className="bg-primary/10 text-primary">
-                          {customer.photo_url ? (
-                            <User className="h-4 w-4" />
-                          ) : (
-                            getInitials(customer.name)
-                          )}
+                          {getInitials(customer.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
@@ -155,18 +149,6 @@ const Customers = () => {
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Phone className="h-3 w-3" />
                               {customer.phone}
-                            </div>
-                          )}
-                          {customer.email && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Mail className="h-3 w-3" />
-                              <span className="truncate">{customer.email}</span>
-                            </div>
-                          )}
-                          {customer.address && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate">{customer.address}</span>
                             </div>
                           )}
                         </div>

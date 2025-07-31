@@ -9,6 +9,7 @@ import { ArrowLeft, Download, TrendingUp, TrendingDown, Users, AlertCircle, Cale
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ReportStats {
   totalGiven: number;
@@ -34,6 +35,7 @@ interface CustomerReport {
 const Reports = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   
   const [dateRange, setDateRange] = useState("all");
   const [startDate, setStartDate] = useState("");
@@ -70,6 +72,13 @@ const Reports = () => {
   const fetchReportData = async () => {
     setLoading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       let dateFilter = "";
       if (dateRange === "custom" && startDate && endDate) {
         dateFilter = `date >= '${startDate}' AND date <= '${endDate}'`;
@@ -91,10 +100,27 @@ const Reports = () => {
       // Fetch transactions with date filter
       let transactionsQuery = supabase
         .from('transactions')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id);
 
       if (dateFilter) {
-        transactionsQuery = transactionsQuery.filter(dateFilter);
+        // Apply date filter based on the range
+        if (dateRange === "custom" && startDate && endDate) {
+          transactionsQuery = transactionsQuery.gte('date', startDate).lte('date', endDate);
+        } else if (dateRange === "today") {
+          const today = new Date().toISOString().split('T')[0];
+          transactionsQuery = transactionsQuery.eq('date', today);
+        } else if (dateRange === "week") {
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          const weekAgoStr = weekAgo.toISOString().split('T')[0];
+          transactionsQuery = transactionsQuery.gte('date', weekAgoStr);
+        } else if (dateRange === "month") {
+          const monthAgo = new Date();
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          const monthAgoStr = monthAgo.toISOString().split('T')[0];
+          transactionsQuery = transactionsQuery.gte('date', monthAgoStr);
+        }
       }
 
       const { data: transactions, error: transactionsError } = await transactionsQuery;
@@ -103,7 +129,8 @@ const Reports = () => {
       // Fetch customers
       const { data: customers, error: customersError } = await supabase
         .from('customers')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id);
       if (customersError) throw customersError;
 
       // Calculate stats
@@ -158,8 +185,10 @@ const Reports = () => {
   };
 
   useEffect(() => {
-    fetchReportData();
-  }, [dateRange, startDate, endDate]);
+    if (user && !authLoading) {
+      fetchReportData();
+    }
+  }, [dateRange, startDate, endDate, user, authLoading]);
 
   const handleDownloadReport = () => {
     const csvContent = [
@@ -335,7 +364,7 @@ const Reports = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {authLoading || loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
