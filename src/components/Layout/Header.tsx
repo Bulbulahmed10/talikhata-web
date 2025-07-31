@@ -1,29 +1,22 @@
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell, Menu, LogOut, Users, FileText, Settings, User } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Bell, Menu, LogOut, Users, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PWAInstallButton from "@/components/PWAInstallButton";
-import DarkModeToggle from "@/components/DarkModeToggle";
-import UserProfile from "@/components/UserProfile";
-import { useAuth } from "@/hooks/useAuth";
 
 interface Profile {
   business_name: string;
   plan: string;
-  full_name?: string;
-  profile_picture_url?: string;
 }
 
 const Header = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [showUserProfile, setShowUserProfile] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -57,22 +50,6 @@ const Header = () => {
 
   const isActive = (path: string) => {
     return location.pathname === path;
-  };
-
-  const handleProfileSuccess = () => {
-    // Refresh profile data
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('business_name, plan')
-        .single();
-      
-      if (!error && data) {
-        setProfile(data);
-      }
-    };
-
-    fetchProfile();
   };
 
   return (
@@ -134,52 +111,19 @@ const Header = () => {
             showInstalledStatus={true}
           />
           
-          {/* Dark Mode Toggle */}
-          <DarkModeToggle />
-          
-          {/* Notifications */}
           <Button variant="ghost" size="sm">
             <Bell className="h-5 w-5" />
           </Button>
-          
-          {/* User Profile */}
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setShowUserProfile(true)}
-            className="flex items-center gap-2"
-          >
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={profile?.profile_picture_url || undefined} />
-              <AvatarFallback className="text-xs">
-                {profile?.profile_picture_url ? 
-                  <User className="h-3 w-3" /> : 
-                  getInitials(profile?.full_name || user?.email || 'র')
-                }
-              </AvatarFallback>
-            </Avatar>
-            <span className="hidden sm:inline text-sm">
-              {profile?.full_name || user?.email?.split('@')[0] || 'ব্যবহারকারী'}
-            </span>
-          </Button>
-          
-          {/* Logout */}
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="h-5 w-5" />
           </Button>
+          <Avatar>
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {profile?.business_name ? getInitials(profile.business_name) : 'র'}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </div>
-
-      {/* User Profile Dialog */}
-      {user && profile && (
-        <UserProfile
-          isOpen={showUserProfile}
-          onClose={() => setShowUserProfile(false)}
-          user={user}
-          profile={profile}
-          onSuccess={handleProfileSuccess}
-        />
-      )}
     </header>
   );
 };

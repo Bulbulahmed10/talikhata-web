@@ -3,9 +3,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import Index from "./pages/Index";
-import AuthForm from "./components/AuthForm";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
@@ -25,37 +24,35 @@ const App = () => {
   }
 
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Sonner />
-          <Routes>
-            <Route 
-              path="/auth" 
-              element={user ? <Navigate to="/" replace /> : <AuthForm />} 
-            />
-            <Route 
-              path="/" 
-              element={user ? <Index /> : <Navigate to="/auth" replace />} 
-            />
-            <Route 
-              path="/customers" 
-              element={user ? <Customers /> : <Navigate to="/auth" replace />} 
-            />
-            <Route 
-              path="/customers/:id" 
-              element={user ? <CustomerDetail /> : <Navigate to="/auth" replace />} 
-            />
-            <Route 
-              path="/reports" 
-              element={user ? <Reports /> : <Navigate to="/auth" replace />} 
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Sonner />
+        <Routes>
+          <Route 
+            path="/auth" 
+            element={user ? <Navigate to="/" replace /> : <Auth />} 
+          />
+          <Route 
+            path="/" 
+            element={user ? <Index /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/customers" 
+            element={user ? <Customers /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/customers/:id" 
+            element={user ? <CustomerDetail /> : <Navigate to="/auth" replace />} 
+          />
+          <Route 
+            path="/reports" 
+            element={user ? <Reports /> : <Navigate to="/auth" replace />} 
+          />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 
