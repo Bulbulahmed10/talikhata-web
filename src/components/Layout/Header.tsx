@@ -27,9 +27,12 @@ const Header = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
+      if (!user) return;
+      
       const { data, error } = await supabase
         .from('profiles')
-        .select('business_name, plan')
+        .select('*')
+        .eq('user_id', user.id)
         .single();
       
       if (!error && data) {
@@ -38,7 +41,7 @@ const Header = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [user]);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -62,9 +65,12 @@ const Header = () => {
   const handleProfileSuccess = () => {
     // Refresh profile data
     const fetchProfile = async () => {
+      if (!user) return;
+      
       const { data, error } = await supabase
         .from('profiles')
-        .select('business_name, plan')
+        .select('*')
+        .eq('user_id', user.id)
         .single();
       
       if (!error && data) {

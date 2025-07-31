@@ -138,6 +138,7 @@ const Customers = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                        <Avatar>
+                        <AvatarImage src={customer.photo_url || undefined} />
                         <AvatarFallback className="bg-primary/10 text-primary">
                           {getInitials(customer.name)}
                         </AvatarFallback>

@@ -7,6 +7,7 @@ interface Customer {
   phone: string | null;
   due_amount: number;
   updated_at: string;
+  photo_url?: string | null;
 }
 
 export const useCustomers = () => {

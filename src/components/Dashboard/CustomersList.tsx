@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Phone, Loader2 } from "lucide-react";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useNavigate } from "react-router-dom";
@@ -63,6 +63,7 @@ const CustomersList = () => {
             >
               <div className="flex items-center gap-3">
                 <Avatar>
+                  <AvatarImage src={customer.photo_url || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary">
                     {getInitials(customer.name)}
                   </AvatarFallback>
