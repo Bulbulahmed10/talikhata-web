@@ -64,6 +64,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Vite dev server assets in development
+  if (event.request.url.includes('@vite/client') || 
+      event.request.url.includes('/node_modules/') ||
+      event.request.url.includes('?t=') ||
+      event.request.url.includes('localhost:') && event.request.url.includes('/src/')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
