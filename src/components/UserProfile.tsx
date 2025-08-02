@@ -17,7 +17,7 @@ interface UserProfileProps {
   isOpen: boolean;
   onClose: () => void;
   user: any;
-  profile: any;
+  profile: any | null;
   onSuccess: () => void;
 }
 
@@ -29,6 +29,12 @@ interface ProfileData {
   email_notifications: boolean;
   sms_notifications: boolean;
   dark_mode: boolean;
+}
+
+interface PasswordData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileProps) => {
@@ -44,7 +50,7 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
 
   // Reset form data when modal opens or profile changes
   useEffect(() => {
-    if (isOpen && profile) {
+    if (isOpen) {
       setFormData({
         full_name: profile?.full_name || "",
         age: profile?.age?.toString() || "",
@@ -61,6 +67,13 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(profile?.profile_picture_url || null);
+  const [passwordData, setPasswordData] = useState<PasswordData>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -190,6 +203,59 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     }
 
     setLoading(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "ত্রুটি",
+        description: "নতুন পাসওয়ার্ড দুটি মিলছে না।",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "ত্রুটি",
+        description: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "সফল!",
+        description: "পাসওয়ার্ড পরিবর্তন হয়েছে।",
+      });
+
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+      setShowPasswordSection(false);
+
+    } catch (error: any) {
+      toast({
+        title: "ত্রুটি",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+
+    setChangingPassword(false);
   };
 
   const getInitials = (name: string) => {
@@ -368,6 +434,70 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
                   onCheckedChange={(checked) => handleInputChange('sms_notifications', checked)}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Password Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">পাসওয়ার্ড সেটিংস</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>পাসওয়ার্ড পরিবর্তন</Label>
+                  <p className="text-xs text-muted-foreground">
+                    আপনার অ্যাকাউন্টের পাসওয়ার্ড পরিবর্তন করুন
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPasswordSection(!showPasswordSection)}
+                >
+                  {showPasswordSection ? "বাতিল" : "পরিবর্তন"}
+                </Button>
+              </div>
+
+              {showPasswordSection && (
+                <form onSubmit={handlePasswordChange} className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">নতুন পাসওয়ার্ড</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({
+                        ...prev,
+                        newPassword: e.target.value
+                      }))}
+                      placeholder="নতুন পাসওয়ার্ড লিখুন"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">পাসওয়ার্ড নিশ্চিত করুন</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({
+                        ...prev,
+                        confirmPassword: e.target.value
+                      }))}
+                      placeholder="পাসওয়ার্ড আবার লিখুন"
+                      required
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={changingPassword} className="w-full" size="sm">
+                    {changingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    পাসওয়ার্ড পরিবর্তন করুন
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
 

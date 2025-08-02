@@ -177,7 +177,7 @@ const Header = () => {
       </div>
 
       {/* User Profile Dialog */}
-      {user && profile && (
+      {user && (
         <UserProfile
           isOpen={showUserProfile}
           onClose={() => setShowUserProfile(false)}

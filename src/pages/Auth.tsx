@@ -224,23 +224,23 @@ const Auth = () => {
         <CardContent>
           {showPasswordReset ? (
             <div className="space-y-4">
-              <Button 
-                variant="ghost" 
-                onClick={() => setShowPasswordReset(false)}
-                className="mb-4"
-              >
-                ← লগিনে ফিরে যান
-              </Button>
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-primary">পাসওয়ার্ড রিসেট</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  চিন্তা করবেন না! আপনার ইমেইল ঠিকানা দিন এবং আমরা পাসওয়ার্ড রিসেট লিংক পাঠাবো।
+                </p>
+              </div>
               <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="resetEmail">ইমেইল</Label>
+                  <Label htmlFor="resetEmail">ইমেইল ঠিকানা</Label>
                   <Input
                     id="resetEmail"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="আপনার ইমেইল ঠিকানা"
+                    placeholder="আপনার ইমেইল ঠিকানা লিখুন"
+                    className="text-center"
                   />
                 </div>
                 <Button 
@@ -249,9 +249,25 @@ const Auth = () => {
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  পাসওয়ার্ড রিসেট লিংক পাঠান
+                  রিসেট লিংক পাঠান
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    setShowPasswordReset(false);
+                    setEmail("");
+                  }}
+                >
+                  লগিনে ফিরে যান
                 </Button>
               </form>
+              <div className="mt-4 p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground text-center">
+                  💡 টিপস: আপনার ইনবক্স এবং স্প্যাম ফোল্ডার উভয়ই চেক করুন
+                </p>
+              </div>
             </div>
           ) : (
             <Tabs defaultValue="signin" className="w-full">
@@ -293,7 +309,7 @@ const Auth = () => {
                   <Button 
                     type="button" 
                     variant="link" 
-                    className="w-full"
+                    className="w-full text-primary hover:text-primary/80 font-medium"
                     onClick={() => setShowPasswordReset(true)}
                   >
                     পাসওয়ার্ড ভুলে গেছেন?
