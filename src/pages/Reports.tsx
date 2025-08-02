@@ -379,42 +379,53 @@ const Reports = () => {
             ) : (
               <div className="space-y-4">
                 {customerReports.map((customer) => (
-                  <div key={customer.id} className="flex items-center justify-between p-4 rounded-lg border border-border">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <p className="font-medium">{customer.name}</p>
-                        {customer.phone && (
-                          <p className="text-sm text-muted-foreground">{customer.phone}</p>
-                        )}
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-4 rounded-lg border border-border cursor-pointer transition hover:bg-accent/20 focus:bg-accent/20"
+                      onClick={() => navigate(`/customers/${customer.id}`)}
+                      tabIndex={0}
+                      role="button"
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          navigate(`/customers/${customer.id}`);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <p className="font-medium">{customer.name}</p>
+                          {customer.phone && (
+                            <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            সর্বশেষ: {formatDate(customer.last_transaction)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <div className="flex items-center gap-2">
+                          {customer.due_amount > 0 ? (
+                            <Badge variant="success">
+                              আমার পাওনা: {formatAmount(customer.due_amount)}
+                            </Badge>
+                          ) : customer.due_amount < 0 ? (
+                            <Badge variant="destructive">
+                              আমার দেনা: {formatAmount(customer.due_amount)}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">সমান</Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <span className="text-warning">দিলাম: {formatAmount(customer.total_given)}</span>
+                          {" | "}
+                          <span className="text-success">পেলাম: {formatAmount(customer.total_received)}</span>
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          সর্বশেষ: {formatDate(customer.last_transaction)}
+                          {customer.transaction_count} টি লেনদেন
                         </p>
                       </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="flex items-center gap-2">
-                        {customer.due_amount > 0 ? (
-                          <Badge variant="destructive">
-                            বাকি: {formatAmount(customer.due_amount)}
-                          </Badge>
-                        ) : customer.due_amount < 0 ? (
-                          <Badge variant="secondary">
-                            দিতে হবে: {formatAmount(customer.due_amount)}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">সমান</Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        <span className="text-warning">দিলাম: {formatAmount(customer.total_given)}</span>
-                        {" | "}
-                        <span className="text-success">পেলাম: {formatAmount(customer.total_received)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {customer.transaction_count} টি লেনদেন
-                      </p>
-                    </div>
-                  </div>
                 ))}
               </div>
             )}
@@ -425,4 +436,4 @@ const Reports = () => {
   );
 };
 
-export default Reports; 
+export default Reports;

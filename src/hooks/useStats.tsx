@@ -7,7 +7,7 @@ interface Stats {
   totalCustomers: number;
   customersWithDue: number;
 }
-
+console.log({supabase})
 export const useStats = () => {
   const [stats, setStats] = useState<Stats>({
     totalGiven: 0,
@@ -36,6 +36,7 @@ export const useStats = () => {
 
     // Get transaction stats
     const { data: givenData } = await supabase
+ 
       .from('transactions')
       .select('amount')
       .eq('type', 'given')
