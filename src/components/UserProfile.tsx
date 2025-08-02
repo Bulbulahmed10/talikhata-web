@@ -112,7 +112,7 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     try {
       // Create unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `profiles/${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
              // Upload to Supabase Storage
        const { data, error } = await supabase.storage
