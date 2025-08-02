@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,15 +32,32 @@ interface CustomerData {
 
 const CustomerForm = ({ isOpen, onClose, customer, onSuccess, mode }: CustomerFormProps) => {
   const [formData, setFormData] = useState<CustomerData>({
-    name: customer?.name || "",
-    phone: customer?.phone || "",
-    email: customer?.email || "",
-    address: customer?.address || "",
-    description: customer?.description || "",
-    photo_url: customer?.photo_url || "",
-    send_email_notifications: customer?.send_email_notifications ?? true,
-    send_sms_notifications: customer?.send_sms_notifications ?? false,
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    description: "",
+    photo_url: "",
+    send_email_notifications: true,
+    send_sms_notifications: false,
   });
+
+  // Reset form data when modal opens or customer changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: customer?.name || "",
+        phone: customer?.phone || "",
+        email: customer?.email || "",
+        address: customer?.address || "",
+        description: customer?.description || "",
+        photo_url: customer?.photo_url || "",
+        send_email_notifications: customer?.send_email_notifications ?? true,
+        send_sms_notifications: customer?.send_sms_notifications ?? false,
+      });
+      setPhotoPreview(customer?.photo_url || null);
+    }
+  }, [isOpen, customer]);
   
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);

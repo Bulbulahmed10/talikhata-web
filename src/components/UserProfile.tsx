@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,14 +33,30 @@ interface ProfileData {
 
 const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileProps) => {
   const [formData, setFormData] = useState<ProfileData>({
-    full_name: profile?.full_name || "",
-    age: profile?.age?.toString() || "",
-    gender: profile?.gender || "",
-    profile_picture_url: profile?.profile_picture_url || "",
-    email_notifications: profile?.email_notifications ?? true,
-    sms_notifications: profile?.sms_notifications ?? false,
-    dark_mode: profile?.dark_mode ?? false,
+    full_name: "",
+    age: "",
+    gender: "",
+    profile_picture_url: "",
+    email_notifications: true,
+    sms_notifications: false,
+    dark_mode: false,
   });
+
+  // Reset form data when modal opens or profile changes
+  useEffect(() => {
+    if (isOpen && profile) {
+      setFormData({
+        full_name: profile?.full_name || "",
+        age: profile?.age?.toString() || "",
+        gender: profile?.gender || "",
+        profile_picture_url: profile?.profile_picture_url || "",
+        email_notifications: profile?.email_notifications ?? true,
+        sms_notifications: profile?.sms_notifications ?? false,
+        dark_mode: profile?.dark_mode ?? false,
+      });
+      setPhotoPreview(profile?.profile_picture_url || null);
+    }
+  }, [isOpen, profile]);
   
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
