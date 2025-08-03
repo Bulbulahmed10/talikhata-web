@@ -143,19 +143,39 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
 
   const sendTransactionEmail = async (customer: any, transaction: any) => {
     try {
-      // This would integrate with your email service
-      // For now, we'll just log it
-      console.log('Sending transaction email to:', customer.email);
-      console.log('Transaction:', transaction);
-      
-      // You can integrate with services like:
-      // - Supabase Edge Functions
-      // - SendGrid
-      // - Nodemailer
-      // - Firebase Functions
-      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_name')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      const businessName = profile?.business_name || 'TallyKhata Business';
+      const currentBalance = customer.due_amount || 0;
+      const transactionAmount = transaction.amount;
+      const newBalance = transaction.type === 'given' 
+        ? currentBalance + transactionAmount 
+        : currentBalance - transactionAmount;
+
+      const response = await supabase.functions.invoke('send-transaction-email', {
+        body: {
+          customerEmail: customer.email,
+          customerName: customer.name,
+          transactionType: transaction.type,
+          amount: transactionAmount,
+          previousBalance: currentBalance,
+          newBalance: newBalance,
+          note: transaction.note,
+          businessName: businessName
+        }
+      });
+
+      if (response.error) {
+        console.error('Error sending email:', response.error);
+      } else {
+        console.log('Transaction email sent successfully');
+      }
     } catch (error) {
-      console.error('Email sending failed:', error);
+      console.error('Failed to send transaction email:', error);
     }
   };
 
