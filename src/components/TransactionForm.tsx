@@ -104,12 +104,12 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
 
         if (error) throw error;
 
-        // Send email notification if enabled
-        if (customer.send_email_notifications && customer.email) {
+        // Send email notification if customer has email
+        if (customer.email) {
           console.log('Sending email to:', customer.email);
           await sendTransactionEmail(customer, transactionData);
         } else {
-          console.log('Email not sent. Notifications enabled:', customer.send_email_notifications, 'Email:', customer.email);
+          console.log('Email not sent. Customer has no email address.');
         }
 
         toast({
