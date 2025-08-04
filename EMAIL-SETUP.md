@@ -194,6 +194,7 @@ Add these to your Supabase project:
 
 - `SENDGRID_API_KEY`: Your SendGrid API key
 - `RESEND_API_KEY`: Your Resend API key (if using Resend)
+- `RESEND_SENDER_EMAIL`: Your verified Resend sender email address
 - `SMTP_HOST`: SMTP host (if using SMTP)
 - `SMTP_PORT`: SMTP port
 - `SMTP_USER`: SMTP username
