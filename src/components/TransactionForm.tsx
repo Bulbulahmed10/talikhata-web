@@ -75,6 +75,9 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
     setLoading(true);
 
     try {
+      console.log('Form submitted - starting transaction creation');
+      console.log('Customer data:', customer);
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -97,19 +100,23 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
         reminder_type: formData.send_reminder ? formData.reminder_type : null,
       };
 
+      console.log('Transaction data prepared:', transactionData);
+
       if (mode === 'add') {
+        console.log('Inserting transaction into database...');
         const { error } = await supabase
           .from('transactions')
           .insert([transactionData]);
 
         if (error) throw error;
+        console.log('Transaction inserted successfully');
 
         // Send email notification if customer has email
         if (customer.email) {
-          console.log('Sending email to:', customer.email);
+          console.log('Customer has email, sending notification to:', customer.email);
           await sendTransactionEmail(customer, transactionData);
         } else {
-          console.log('Email not sent. Customer has no email address.');
+          console.log('Email not sent. Customer email:', customer.email);
         }
 
         toast({
