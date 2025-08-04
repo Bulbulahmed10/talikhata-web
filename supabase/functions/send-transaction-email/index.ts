@@ -1,8 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { createTransport } from "npm:nodemailer@6.9.13";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,8 +11,6 @@ interface TransactionEmailRequest {
   customerName: string;
   transactionType: "given" | "received";
   amount: number;
-  previousBalance: number;
-  newBalance: number;
   note?: string;
   businessName: string;
 }
@@ -31,8 +26,6 @@ const handler = async (req: Request): Promise<Response> => {
       customerName,
       transactionType,
       amount,
-      previousBalance,
-      newBalance,
       note,
       businessName
     }: TransactionEmailRequest = await req.json();
@@ -41,22 +34,9 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Customer email is required");
     }
 
-    const isDebt = transactionType === "given";
-    const isPayment = transactionType === "received";
-    
-    const subject = isDebt 
-      ? `New Transaction: You owe ${amount} BDT to ${businessName}`
-      : `Payment Received: ${amount} BDT from ${businessName}`;
-
-    const transactionMessage = isDebt
-      ? `You have received ${amount} BDT from ${businessName}`
-      : `You have paid ${amount} BDT to ${businessName}`;
-
-    const balanceMessage = newBalance > 0
-      ? `You currently owe ${Math.abs(newBalance)} BDT to ${businessName}`
-      : newBalance < 0
-      ? `${businessName} owes you ${Math.abs(newBalance)} BDT`
-      : `Your account is settled with ${businessName}`;
+    const subject = transactionType === "given"
+      ? `New Transaction: You received ${amount} BDT from ${businessName}`
+      : `Payment Confirmation: You paid ${amount} BDT to ${businessName}`;
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -157,17 +137,24 @@ const handler = async (req: Request): Promise<Response> => {
 </body>
 </html>`;
 
-    const emailResponse = await resend.emails.send({
-      from: "TallyKhata <onboarding@resend.dev>",
-      to: [customerEmail],
-      subject: subject,
-      html: emailHtml,
-      from: `${businessName} <${Deno.env.get("RESEND_SENDER_EMAIL")}>`,
+    const transporter = createTransport({
+        service: 'gmail',
+        auth: {
+            user: Deno.env.get("GMAIL_USER"),
+            pass: Deno.env.get("GMAIL_APP_PASSWORD"),
+        },
     });
 
-    console.log("Transaction email sent successfully:", emailResponse);
+    const mailOptions = {
+        from: `"${businessName}" <${Deno.env.get("GMAIL_USER")}>`,
+        to: customerEmail,
+        subject: subject,
+        html: emailHtml,
+    };
 
-    return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), {
+    await transporter.sendMail(mailOptions);
+
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
