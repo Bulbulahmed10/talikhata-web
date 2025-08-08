@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ReportStats {
-  totalGiven: number;
-  totalReceived: number;
-  totalDue: number;
+  netReceivable: number;
+  netPayable: number;
   totalCustomers: number;
   customersWithDue: number;
-  totalTransactions: number;
-  averageTransaction: number;
 }
 
 interface CustomerReport {
@@ -42,13 +39,10 @@ const Reports = () => {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<ReportStats>({
-    totalGiven: 0,
-    totalReceived: 0,
-    totalDue: 0,
+    netReceivable: 0,
+    netPayable: 0,
     totalCustomers: 0,
     customersWithDue: 0,
-    totalTransactions: 0,
-    averageTransaction: 0,
   });
   const [customerReports, setCustomerReports] = useState<CustomerReport[]>([]);
 
@@ -69,7 +63,7 @@ const Reports = () => {
     });
   };
 
-  const fetchReportData = async () => {
+  const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
       // Get current user
@@ -79,77 +73,55 @@ const Reports = () => {
         setLoading(false);
         return;
       }
-      let dateFilter = "";
-      if (dateRange === "custom" && startDate && endDate) {
-        dateFilter = `date >= '${startDate}' AND date <= '${endDate}'`;
-      } else if (dateRange === "today") {
-        const today = new Date().toISOString().split('T')[0];
-        dateFilter = `date = '${today}'`;
-      } else if (dateRange === "week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekAgoStr = weekAgo.toISOString().split('T')[0];
-        dateFilter = `date >= '${weekAgoStr}'`;
-      } else if (dateRange === "month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        const monthAgoStr = monthAgo.toISOString().split('T')[0];
-        dateFilter = `date >= '${monthAgoStr}'`;
-      }
 
-      // Fetch transactions with date filter
-      let transactionsQuery = supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (dateFilter) {
-        // Apply date filter based on the range
-        if (dateRange === "custom" && startDate && endDate) {
-          transactionsQuery = transactionsQuery.gte('date', startDate).lte('date', endDate);
-        } else if (dateRange === "today") {
-          const today = new Date().toISOString().split('T')[0];
-          transactionsQuery = transactionsQuery.eq('date', today);
-        } else if (dateRange === "week") {
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          const weekAgoStr = weekAgo.toISOString().split('T')[0];
-          transactionsQuery = transactionsQuery.gte('date', weekAgoStr);
-        } else if (dateRange === "month") {
-          const monthAgo = new Date();
-          monthAgo.setMonth(monthAgo.getMonth() - 1);
-          const monthAgoStr = monthAgo.toISOString().split('T')[0];
-          transactionsQuery = transactionsQuery.gte('date', monthAgoStr);
-        }
-      }
-
-      const { data: transactions, error: transactionsError } = await transactionsQuery;
-      if (transactionsError) throw transactionsError;
-
-      // Fetch customers
+      // Fetch customers for stats calculation
       const { data: customers, error: customersError } = await supabase
         .from('customers')
         .select('*')
         .eq('user_id', user.id);
       if (customersError) throw customersError;
 
-      // Calculate stats
-      const totalGiven = transactions?.filter(t => t.type === 'given').reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalReceived = transactions?.filter(t => t.type === 'received').reduce((sum, t) => sum + t.amount, 0) || 0;
-      const totalDue = customers?.reduce((sum, c) => sum + c.due_amount, 0) || 0;
-      const customersWithDue = customers?.filter(c => c.due_amount > 0).length || 0;
-      const totalTransactions = transactions?.length || 0;
-      const averageTransaction = totalTransactions > 0 ? (totalGiven + totalReceived) / totalTransactions : 0;
+      // Calculate stats using the same logic as dashboard
+      const netReceivable = customers
+        ?.filter(c => Number(c.due_amount) > 0)
+        .reduce((sum, c) => sum + Number(c.due_amount), 0) || 0;
+      const netPayable = customers
+        ?.filter(c => Number(c.due_amount) < 0)
+        .reduce((sum, c) => sum + Math.abs(Number(c.due_amount)), 0) || 0;
+      const customersWithDue = customers?.filter(c => Number(c.due_amount) > 0).length || 0;
 
       setStats({
-        totalGiven,
-        totalReceived,
-        totalDue,
+        netReceivable,
+        netPayable,
         totalCustomers: customers?.length || 0,
         customersWithDue,
-        totalTransactions,
-        averageTransaction,
       });
+
+      // Fetch transactions for customer reports
+      let transactionsQuery = supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (dateRange === "custom" && startDate && endDate) {
+        transactionsQuery = transactionsQuery.gte('date', startDate).lte('date', endDate);
+      } else if (dateRange === "today") {
+        const today = new Date().toISOString().split('T')[0];
+        transactionsQuery = transactionsQuery.eq('date', today);
+      } else if (dateRange === "week") {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgoStr = weekAgo.toISOString().split('T')[0];
+        transactionsQuery = transactionsQuery.gte('date', weekAgoStr);
+      } else if (dateRange === "month") {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgoStr = monthAgo.toISOString().split('T')[0];
+        transactionsQuery = transactionsQuery.gte('date', monthAgoStr);
+      }
+
+      const { data: transactions, error: transactionsError } = await transactionsQuery;
+      if (transactionsError) throw transactionsError;
 
       // Generate customer reports
       const customerReportsData = customers?.map(customer => {
@@ -174,21 +146,22 @@ const Reports = () => {
 
       setCustomerReports(customerReportsData.sort((a, b) => Math.abs(b.due_amount) - Math.abs(a.due_amount)));
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
     setLoading(false);
-  };
+  }, [dateRange, startDate, endDate, toast]);
 
   useEffect(() => {
     if (user && !authLoading) {
       fetchReportData();
     }
-  }, [dateRange, startDate, endDate, user, authLoading]);
+  }, [user, authLoading, fetchReportData]);
 
   const handleDownloadReport = () => {
     const csvContent = [
@@ -296,45 +269,30 @@ const Reports = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট দিলাম</CardTitle>
-              <TrendingDown className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">
-                {loading ? "..." : formatAmount(stats.totalGiven)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stats.totalTransactions} টি লেনদেন
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট পেলাম</CardTitle>
+              <CardTitle className="text-sm font-medium">মোট পাওনা</CardTitle>
               <TrendingUp className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                {loading ? "..." : formatAmount(stats.totalReceived)}
+                {loading ? "..." : formatAmount(stats.netReceivable)}
               </div>
               <p className="text-xs text-muted-foreground">
-                গড়: {formatAmount(stats.averageTransaction)}
+                {stats.customersWithDue} জন গ্রাহকের কাছে
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট বাকি</CardTitle>
-              <AlertCircle className="h-4 w-4 text-destructive" />
+              <CardTitle className="text-sm font-medium">মোট দেনা</CardTitle>
+              <TrendingDown className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">
-                {loading ? "..." : formatAmount(stats.totalDue)}
+              <div className="text-2xl font-bold text-warning">
+                {loading ? "..." : formatAmount(stats.netPayable)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats.customersWithDue} জন গ্রাহকের কাছে
+                নেট দেনা
               </p>
             </CardContent>
           </Card>
@@ -350,6 +308,21 @@ const Reports = () => {
               </div>
               <p className="text-xs text-muted-foreground">
                 সক্রিয় গ্রাহক
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">বকেয়া গ্রাহক</CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {loading ? "..." : stats.customersWithDue}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                রিমাইন্ডার প্রয়োজন
               </p>
             </CardContent>
           </Card>

@@ -85,6 +85,9 @@ export type Database = {
           reminder_sent: boolean | null
           type: string
           user_id: string
+          time: string | null
+          refund_amount: number | null
+          refund_note: string | null
         }
         Insert: {
           amount: number
@@ -96,6 +99,9 @@ export type Database = {
           reminder_sent?: boolean | null
           type: string
           user_id: string
+          time?: string | null
+          refund_amount?: number | null
+          refund_note?: string | null
         }
         Update: {
           amount?: number
@@ -107,6 +113,9 @@ export type Database = {
           reminder_sent?: boolean | null
           type?: string
           user_id?: string
+          time?: string | null
+          refund_amount?: number | null
+          refund_note?: string | null
         }
         Relationships: [
           {

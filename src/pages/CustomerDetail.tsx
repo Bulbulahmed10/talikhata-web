@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send, Mail, MapPin, User, Edit } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send, Mail, MapPin, User, Edit, Trash2, Clock, RefreshCw, SortAsc, SortDesc, Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import CustomerForm from "@/components/CustomerForm";
+import TransactionForm from "@/components/TransactionForm";
 
 interface Customer {
   id: string;
@@ -35,8 +37,28 @@ interface Transaction {
   amount: number;
   note: string;
   date: string;
+  time: string;
+  refund_amount: number;
+  refund_note: string | null;
   created_at: string;
 }
+
+interface CustomerData {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  description: string | null;
+  photo_url: string | null;
+  due_amount: number;
+  created_at: string;
+  updated_at: string;
+  send_email_notifications: boolean;
+  send_sms_notifications: boolean;
+}
+
+type SortOption = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "type" | "net-amount";
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -46,15 +68,13 @@ const CustomerDetail = () => {
   
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditTransactionDialog, setShowEditTransactionDialog] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newTransaction, setNewTransaction] = useState({
-    type: "given" as "given" | "received",
-    amount: "",
-    note: "",
-    date: new Date().toISOString().split('T')[0]
-  });
+  const [sortBy, setSortBy] = useState<SortOption>("date-desc");
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('bn-BD', {
@@ -73,11 +93,38 @@ const CustomerDetail = () => {
     });
   };
 
+  const formatTime = (dateString: string, timeString: string) => {
+    const date = new Date(`${dateString}T${timeString}`);
+    const now = new Date();
+    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    // If within 24 hours, show relative time
+    if (diffInHours < 24) {
+      if (diffInHours < 1) {
+        const diffInMinutes = Math.floor(diffInHours * 60);
+        return `${diffInMinutes} মিনিট আগে`;
+      } else if (diffInHours < 2) {
+        return "১ ঘন্টা আগে";
+      } else {
+        return `${Math.floor(diffInHours)} ঘন্টা আগে`;
+      }
+    }
+    
+    // Otherwise show formatted date and time
+    return date.toLocaleString('bn-BD', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).join('');
   };
 
-  const fetchCustomerData = async () => {
+  const fetchCustomerData = useCallback(async () => {
     if (!id) return;
     
     setLoading(true);
@@ -101,12 +148,12 @@ const CustomerDetail = () => {
       if (customerError) throw customerError;
       setCustomer({
         ...customerData,
-        email: (customerData as any).email || null,
-        address: (customerData as any).address || null,
-        description: (customerData as any).description || null,
-        photo_url: (customerData as any).photo_url || null,
-        send_email_notifications: (customerData as any).send_email_notifications ?? true,
-        send_sms_notifications: (customerData as any).send_sms_notifications ?? false,
+        email: (customerData as CustomerData).email || null,
+        address: (customerData as CustomerData).address || null,
+        description: (customerData as CustomerData).description || null,
+        photo_url: (customerData as CustomerData).photo_url || null,
+        send_email_notifications: (customerData as CustomerData).send_email_notifications ?? true,
+        send_sms_notifications: (customerData as CustomerData).send_sms_notifications ?? false,
       } as Customer);
 
       // Fetch transactions
@@ -115,78 +162,106 @@ const CustomerDetail = () => {
         .select('*')
         .eq('customer_id', id)
         .eq('user_id', user.id)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('time', { ascending: false });
 
       if (transactionsError) throw transactionsError;
       setTransactions((transactionsData || []) as Transaction[]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
     setLoading(false);
-  };
+  }, [id, toast]);
 
   useEffect(() => {
     if (user && !authLoading) {
       fetchCustomerData();
     }
-  }, [id, user, authLoading]);
+  }, [user, authLoading, fetchCustomerData]);
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
+  // Sort and filter transactions
+  useEffect(() => {
+    const sorted = [...transactions];
+    
+    switch (sortBy) {
+      case "date-desc":
+        sorted.sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+        break;
+      case "date-asc":
+        sorted.sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
+        break;
+      case "amount-desc":
+        sorted.sort((a, b) => b.amount - a.amount);
+        break;
+      case "amount-asc":
+        sorted.sort((a, b) => a.amount - b.amount);
+        break;
+      case "type":
+        sorted.sort((a, b) => a.type.localeCompare(b.type));
+        break;
+      case "net-amount":
+        sorted.sort((a, b) => {
+          const netA = a.amount - (a.refund_amount || 0);
+          const netB = b.amount - (b.refund_amount || 0);
+          return netB - netA;
+        });
+        break;
+    }
+    
+    setFilteredTransactions(sorted);
+  }, [transactions, sortBy]);
+
+  const handleCustomerSuccess = () => {
+    setShowEditDialog(false);
+    fetchCustomerData(); // Refresh customer data
+  };
+
+  const handleTransactionSuccess = () => {
+    setShowAddDialog(false);
+    setShowEditTransactionDialog(false);
+    setSelectedTransaction(null);
+    fetchCustomerData(); // Refresh data
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setShowEditTransactionDialog(true);
+  };
+
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!confirm("আপনি কি এই লেনদেন মুছে ফেলতে চান?")) {
+      return;
+    }
 
     setLoading(true);
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
       const { error } = await supabase
         .from('transactions')
-        .insert([{
-          user_id: user.id,
-          customer_id: id,
-          type: newTransaction.type,
-          amount: parseFloat(newTransaction.amount),
-          note: newTransaction.note,
-          date: newTransaction.date
-        }]);
+        .delete()
+        .eq('id', transactionId);
 
       if (error) throw error;
 
       toast({
         title: "সফল!",
-        description: "নতুন লেনদেন যোগ করা হয়েছে।",
+        description: "লেনদেন মুছে ফেলা হয়েছে।",
       });
       
-      setNewTransaction({
-        type: "given",
-        amount: "",
-        note: "",
-        date: new Date().toISOString().split('T')[0]
-      });
-      setShowAddDialog(false);
       fetchCustomerData(); // Refresh data
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
     setLoading(false);
-  };
-
-  const handleCustomerSuccess = () => {
-    setShowEditDialog(false);
-    fetchCustomerData(); // Refresh customer data
   };
 
   const handleSendReminder = async () => {
@@ -280,74 +355,6 @@ const CustomerDetail = () => {
                   নতুন লেনদেন
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>নতুন লেনদেন যোগ করুন</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddTransaction} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>লেনদেনের ধরন</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={newTransaction.type === "given" ? "default" : "outline"}
-                        onClick={() => setNewTransaction({ ...newTransaction, type: "given" })}
-                        className="flex-1"
-                      >
-                        দিলাম
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={newTransaction.type === "received" ? "default" : "outline"}
-                        onClick={() => setNewTransaction({ ...newTransaction, type: "received" })}
-                        className="flex-1"
-                      >
-                        পেলাম
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">টাকার পরিমাণ</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={newTransaction.amount}
-                      onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                      required
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="note">নোট</Label>
-                    <Input
-                      id="note"
-                      value={newTransaction.note}
-                      onChange={(e) => setNewTransaction({ ...newTransaction, note: e.target.value })}
-                      placeholder="লেনদেনের বিবরণ"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date">তারিখ</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={newTransaction.date}
-                      onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" disabled={loading} className="flex-1">
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      যোগ করুন
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
-                      বাতিল
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
             </Dialog>
           </div>
         </div>
@@ -391,11 +398,11 @@ const CustomerDetail = () => {
               <div className="text-3xl font-bold mb-2">
                 {customer.due_amount > 0 ? (
                   <span className="text-destructive">
-                    বাকি: {formatAmount(customer.due_amount)}
+                   নেট পাওনা: {formatAmount(customer.due_amount)}
                   </span>
                 ) : customer.due_amount < 0 ? (
                   <span className="text-secondary">
-                    দিতে হবে: {formatAmount(customer.due_amount)}
+                    নেট দেনা: {formatAmount(customer.due_amount)}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">সমান</span>
@@ -411,51 +418,97 @@ const CustomerDetail = () => {
         {/* Transactions */}
         <Card>
           <CardHeader>
-            <CardTitle>লেনদেনের ইতিহাস</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>লেনদেনের ইতিহাস</CardTitle>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">নতুন থেকে পুরাতন</SelectItem>
+                    <SelectItem value="date-asc">পুরাতন থেকে নতুন</SelectItem>
+                    <SelectItem value="amount-desc">বড় থেকে ছোট</SelectItem>
+                    <SelectItem value="amount-asc">ছোট থেকে বড়</SelectItem>
+                    <SelectItem value="net-amount">নেট পরিমাণ</SelectItem>
+                    <SelectItem value="type">ধরন অনুযায়ী</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {transactions.length === 0 ? (
+            {filteredTransactions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p>কোনো লেনদেন নেই</p>
                 <p className="text-sm">নতুন লেনদেন যোগ করুন</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {transactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 rounded-lg border border-border">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                        transaction.type === "received" 
-                          ? "bg-success/10 text-success" 
-                          : "bg-warning/10 text-warning"
-                      }`}>
-                        {transaction.type === "received" ? (
-                          <TrendingUp className="h-5 w-5" />
-                        ) : (
-                          <TrendingDown className="h-5 w-5" />
-                        )}
+              <div className="space-y-3">
+                {filteredTransactions.map((transaction) => {
+                  return (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/5 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                          transaction.type === "received" 
+                            ? "bg-success/10 text-success" 
+                            : "bg-warning/10 text-warning"
+                        }`}>
+                          {transaction.type === "received" ? (
+                            <TrendingUp className="h-6 w-6" />
+                          ) : (
+                            <TrendingDown className="h-6 w-6" />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">
+                              {transaction.type === "received" ? "পেলাম" : "দিলাম"}
+                            </p>
+                            <Badge variant={transaction.type === "received" ? "success" : "warning"} className="text-xs">
+                              {transaction.type === "received" ? "পাওয়া" : "দেওয়া"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground max-w-xs truncate">
+                            {transaction.note || "কোনো নোট নেই"}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(transaction.date, transaction.time)}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">
-                          {transaction.type === "received" ? "পেলাম" : "দিলাম"}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {transaction.note || "কোনো নোট নেই"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(transaction.date)}
-                        </p>
+                      <div className="text-right space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className={`font-semibold text-lg ${
+                            transaction.type === "received" ? "text-success" : "text-warning"
+                          }`}>
+                            {transaction.type === "received" ? "+" : "-"}{formatAmount(transaction.amount)}
+                          </p>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTransaction(transaction)}
+                              className="h-8 w-8 p-0 hover:bg-accent"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteTransaction(transaction.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${
-                        transaction.type === "received" ? "text-success" : "text-warning"
-                      }`}>
-                        {transaction.type === "received" ? "+" : "-"}{formatAmount(transaction.amount)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -470,6 +523,30 @@ const CustomerDetail = () => {
         onSuccess={handleCustomerSuccess}
         mode="edit"
       />
+
+      {/* Add Transaction Dialog */}
+      <TransactionForm
+        isOpen={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        customer={customer}
+        onSuccess={handleTransactionSuccess}
+        mode="add"
+      />
+
+      {/* Edit Transaction Dialog */}
+      {selectedTransaction && (
+        <TransactionForm
+          isOpen={showEditTransactionDialog}
+          onClose={() => {
+            setShowEditTransactionDialog(false);
+            setSelectedTransaction(null);
+          }}
+          customer={customer}
+          onSuccess={handleTransactionSuccess}
+          mode="edit"
+          transaction={selectedTransaction}
+        />
+      )}
     </div>
   );
 };

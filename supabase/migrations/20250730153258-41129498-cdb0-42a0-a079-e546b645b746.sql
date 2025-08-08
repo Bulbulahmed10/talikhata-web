@@ -90,6 +90,23 @@ ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS reminder_type TEXT CHECK (reminder_type IN ('email', 'sms', 'both')),
 ADD COLUMN IF NOT EXISTS reminder_date DATE;
 
+-- Add new fields to transactions table
+ALTER TABLE public.transactions 
+ADD COLUMN time TIME DEFAULT CURRENT_TIME,
+ADD COLUMN refund_amount DECIMAL(10,2) DEFAULT 0,
+ADD COLUMN refund_note TEXT;
+
+-- Update the existing transactions to have current time
+UPDATE public.transactions 
+SET time = CURRENT_TIME 
+WHERE time IS NULL;
+
+-- Create index for time field
+CREATE INDEX idx_transactions_time ON public.transactions(time);
+
+-- Create index for refund_amount field
+CREATE INDEX idx_transactions_refund_amount ON public.transactions(refund_amount);
+
 -- Create debt_reminders table for tracking debt reminders
 CREATE TABLE IF NOT EXISTS public.debt_reminders (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,

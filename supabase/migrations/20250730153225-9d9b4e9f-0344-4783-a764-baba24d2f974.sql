@@ -120,29 +120,52 @@ CREATE TRIGGER update_customers_updated_at
 CREATE OR REPLACE FUNCTION public.update_customer_due_amount()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Update due amount based on transaction type
+  -- Update due amount based on transaction type and refund
   IF TG_OP = 'INSERT' THEN
     IF NEW.type = 'given' THEN
       UPDATE public.customers 
-      SET due_amount = due_amount + NEW.amount 
+      SET due_amount = due_amount + NEW.amount - COALESCE(NEW.refund_amount, 0)
       WHERE id = NEW.customer_id;
     ELSIF NEW.type = 'received' THEN
       UPDATE public.customers 
-      SET due_amount = due_amount - NEW.amount 
+      SET due_amount = due_amount - NEW.amount + COALESCE(NEW.refund_amount, 0)
       WHERE id = NEW.customer_id;
     END IF;
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
     IF OLD.type = 'given' THEN
       UPDATE public.customers 
-      SET due_amount = due_amount - OLD.amount 
+      SET due_amount = due_amount - OLD.amount + COALESCE(OLD.refund_amount, 0)
       WHERE id = OLD.customer_id;
     ELSIF OLD.type = 'received' THEN
       UPDATE public.customers 
-      SET due_amount = due_amount + OLD.amount 
+      SET due_amount = due_amount + OLD.amount - COALESCE(OLD.refund_amount, 0)
       WHERE id = OLD.customer_id;
     END IF;
     RETURN OLD;
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- First, reverse the old transaction
+    IF OLD.type = 'given' THEN
+      UPDATE public.customers 
+      SET due_amount = due_amount - OLD.amount + COALESCE(OLD.refund_amount, 0)
+      WHERE id = OLD.customer_id;
+    ELSIF OLD.type = 'received' THEN
+      UPDATE public.customers 
+      SET due_amount = due_amount + OLD.amount - COALESCE(OLD.refund_amount, 0)
+      WHERE id = OLD.customer_id;
+    END IF;
+    
+    -- Then, apply the new transaction
+    IF NEW.type = 'given' THEN
+      UPDATE public.customers 
+      SET due_amount = due_amount + NEW.amount - COALESCE(NEW.refund_amount, 0)
+      WHERE id = NEW.customer_id;
+    ELSIF NEW.type = 'received' THEN
+      UPDATE public.customers 
+      SET due_amount = due_amount - NEW.amount + COALESCE(NEW.refund_amount, 0)
+      WHERE id = NEW.customer_id;
+    END IF;
+    RETURN NEW;
   END IF;
   RETURN NULL;
 END;
@@ -150,7 +173,7 @@ $$ LANGUAGE plpgsql;
 
 -- Create trigger to automatically update customer due amount
 CREATE TRIGGER update_customer_due_trigger
-  AFTER INSERT OR DELETE ON public.transactions
+  AFTER INSERT OR DELETE OR UPDATE ON public.transactions
   FOR EACH ROW
   EXECUTE FUNCTION public.update_customer_due_amount();
 
