@@ -27,17 +27,17 @@ const Index = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="মোট পাওনা"
-            amount={loading ? 0 : stats.totalGiven}
+            amount={loading ? 0 : stats.netReceivable}
             icon={<TrendingUp className="h-6 w-6" />}
             variant="success"
             subtitle={loading ? "লোড হচ্ছে..." : `${stats.customersWithDue} জন গ্রাহকের কাছে`}
           />
           <StatsCard
             title="মোট দেনা"
-            amount={loading ? 0 : stats.totalReceived}
+            amount={loading ? 0 : stats.netPayable}
             icon={<TrendingDown className="h-6 w-6" />}
             variant="warning"
-            subtitle={loading ? "লোড হচ্ছে..." : "প্রাপ্ত অর্থ"}
+            subtitle={loading ? "লোড হচ্ছে..." : "নেট দেনা"}
           />
           <StatsCard
             title="মোট গ্রাহক"

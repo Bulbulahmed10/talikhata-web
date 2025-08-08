@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Stats {
-  totalGiven: number;
-  totalReceived: number;
+  netReceivable: number;
+  netPayable: number;
   totalCustomers: number;
   customersWithDue: number;
 }
 console.log({supabase})
 export const useStats = () => {
   const [stats, setStats] = useState<Stats>({
-    totalGiven: 0,
-    totalReceived: 0,
+    netReceivable: 0,
+    netPayable: 0,
     totalCustomers: 0,
     customersWithDue: 0,
   });
@@ -25,8 +25,8 @@ export const useStats = () => {
     
     if (!user) {
       setStats({
-        totalGiven: 0,
-        totalReceived: 0,
+        netReceivable: 0,
+        netPayable: 0,
         totalCustomers: 0,
         customersWithDue: 0,
       });
@@ -34,34 +34,24 @@ export const useStats = () => {
       return;
     }
 
-    // Get transaction stats
-    const { data: givenData } = await supabase
- 
-      .from('transactions')
-      .select('amount')
-      .eq('type', 'given')
-      .eq('user_id', user.id);
-
-    const { data: receivedData } = await supabase
-      .from('transactions')
-      .select('amount')
-      .eq('type', 'received')
-      .eq('user_id', user.id);
-
-    // Get customer stats
+    // Get customer stats only
     const { data: customersData } = await supabase
       .from('customers')
       .select('due_amount')
       .eq('user_id', user.id);
 
-    if (givenData && receivedData && customersData) {
-      const totalGiven = givenData.reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalReceived = receivedData.reduce((sum, t) => sum + Number(t.amount), 0);
+    if (customersData) {
+      const netReceivable = customersData
+        .filter(c => Number(c.due_amount) > 0)
+        .reduce((sum, c) => sum + Number(c.due_amount), 0);
+      const netPayable = customersData
+        .filter(c => Number(c.due_amount) < 0)
+        .reduce((sum, c) => sum + Math.abs(Number(c.due_amount)), 0);
       const customersWithDue = customersData.filter(c => Number(c.due_amount) > 0).length;
 
       setStats({
-        totalGiven,
-        totalReceived,
+        netReceivable,
+        netPayable,
         totalCustomers: customersData.length,
         customersWithDue,
       });
