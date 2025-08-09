@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { transactionsApi, type TransactionDto } from "@/lib/api";
 import { Transaction, SortOption, FilterOption } from "@/types";
 import { SORT_OPTIONS, FILTER_OPTIONS } from "@/constants";
 
@@ -34,42 +34,28 @@ export const useTransactions = (options: UseTransactionsOptions = {}): UseTransa
       setLoading(true);
       setError(null);
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setTransactions([]);
-        setLoading(false);
-        return;
-      }
+      const res = await transactionsApi.list({ limit: limit || 100, customerId });
+      const data = (res.data || []) as TransactionDto[];
+      const mapped: Transaction[] = data.map((t) => ({
+        id: (t as any)._id,
+        type: t.type,
+        amount: t.amount,
+        note: (t.note as string) || '',
+        date: new Date(t.date).toISOString().slice(0, 10),
+        time: t.time,
+        due_date: (t.due_date as string | null) || null,
+        refund_amount: t.refund_amount || 0,
+        refund_note: null,
+        created_at: (t as any).createdAt || new Date().toISOString(),
+        customer_id: typeof t.customer === 'string' ? (t.customer as string) : ((t.customer as any)._id as string),
+        customers: typeof t.customer === 'object' ? {
+          id: (t.customer as any)._id,
+          name: (t.customer as any).name,
+          phone: (t.customer as any).phone || null,
+        } : undefined,
+      }));
 
-      let query = supabase
-        .from('transactions')
-        .select(`
-          *,
-          customers (
-            id,
-            name,
-            phone
-          )
-        `)
-        .eq('user_id', user.id);
-
-      if (customerId) {
-        query = query.eq('customer_id', customerId);
-      }
-
-      if (limit) {
-        query = query.limit(limit);
-      }
-
-      const { data, error: fetchError } = await query.order('created_at', { ascending: false });
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      setTransactions(data || []);
+      setTransactions(mapped);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
     } finally {
@@ -91,9 +77,9 @@ export const useTransactions = (options: UseTransactionsOptions = {}): UseTransa
     
     switch (sortBy) {
       case SORT_OPTIONS.DATE_DESC:
-        return sorted.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return sorted.sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
       case SORT_OPTIONS.DATE_ASC:
-        return sorted.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return sorted.sort((a, b) => new Date(`${a.date}T${a.time}`).getTime() - new Date(`${b.date}T${b.time}`).getTime());
       case SORT_OPTIONS.AMOUNT_DESC:
         return sorted.sort((a, b) => b.amount - a.amount);
       case SORT_OPTIONS.AMOUNT_ASC:

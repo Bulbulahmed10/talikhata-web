@@ -56,8 +56,10 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/transactions', transactionRoutes);
-
-// 404 handler
+const uploadRoutes = require('./routes/uploads');
+app.use('/api/uploads', uploadRoutes);
+ 
+ // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',

@@ -74,11 +74,31 @@ const CustomerForm = ({ isOpen, onClose, customer, onSuccess, mode }: CustomerFo
     }));
   };
 
-  const handlePhotoUpload = async (_file: File) => {
-    toast({
-      title: "ফিচার অনুপলব্ধ",
-      description: "ছবি আপলোড সাময়িকভাবে বন্ধ আছে। দয়া করে সরাসরি ছবির URL ব্যবহার করুন।",
-    });
+  const handlePhotoUpload = async (file: File) => {
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append('image', file);
+      const token = localStorage.getItem('tk_auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/uploads/image`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || `Upload failed with status ${res.status}`);
+      }
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, photo_url: data.url }));
+      setPhotoPreview(data.url);
+      toast({ title: 'আপলোড সফল', description: 'ছবি সফলভাবে আপলোড হয়েছে।' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'ছবি আপলোড করতে সমস্যা হয়েছে।';
+      toast({ title: 'ত্রুটি', description: message, variant: 'destructive' });
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

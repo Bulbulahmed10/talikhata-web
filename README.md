@@ -1,10 +1,10 @@
 # তালিখাতা ওয়েব (TallyKhata Web)
 
-A comprehensive business ledger application for Bangladeshi shopkeepers, built with React, TypeScript, and Supabase.
+A comprehensive business ledger application for Bangladeshi shopkeepers, built with React, TypeScript, Express, and MongoDB.
 
 ## 🌟 Features
 
-- **User Authentication** - Email/password login with Supabase Auth
+- **User Authentication** - Email/password login with JWT (Express + MongoDB)
 - **Customer Management** - Add, edit, delete customers with search
 - **Transaction Recording** - Track given/received amounts (দিলাম/পেলাম)
 - **Business Reports** - Detailed analytics with date filtering
@@ -17,7 +17,7 @@ A comprehensive business ledger application for Bangladeshi shopkeepers, built w
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account (for backend)
+- MongoDB (local or Atlas) and Cloudinary account (for image uploads)
 
 ### Local Development
 
@@ -39,7 +39,7 @@ The app will be available at `http://localhost:8080`
 
 - **Frontend**: React 18 + TypeScript + Vite
 - **UI Components**: shadcn/ui + Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Auth + Real-time)
+- **Backend**: Express + MongoDB (Mongoose) + JWT Auth
 - **State Management**: React Query
 - **Routing**: React Router DOM
 - **Icons**: Lucide React
@@ -90,9 +90,9 @@ The app will be available at `http://localhost:8080`
    - Vercel will auto-detect the Vite configuration
 
 3. **Environment Variables**
-   Add your Supabase environment variables in Vercel:
-   - Go to Project Settings → Environment Variables
-   - Add your Supabase URL and keys
+Add your API base URL to the frontend and backend variables to your server host:
+- Frontend: set VITE_API_URL to your backend URL
+- Backend: set MONGODB_URI, JWT_SECRET, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 
 4. **Deploy**
    - Vercel will automatically build and deploy
@@ -103,16 +103,25 @@ The app will be available at `http://localhost:8080`
 Create a `.env` file for local development:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:5000
 ```
 
-## 📊 Database Schema
+Backend `.env` (see `backend/env.example`):
 
-The app uses Supabase with the following tables:
-- `profiles` - User business information
-- `customers` - Customer data with balances
-- `transactions` - Transaction records
+```env
+MONGODB_URI=mongodb://localhost:27017/talikhata
+JWT_SECRET=your-secret
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+## 📊 Database Models
+
+The app uses MongoDB with the following collections (see `backend/models`):
+- `User` - User account
+- `Customer` - Customer data with balances
+- `Transaction` - Transaction records
 
 ## 🔧 Development
 
@@ -132,7 +141,7 @@ src/
 ├── components/      # UI components
 ├── hooks/          # Custom React hooks
 ├── pages/          # Page components
-├── integrations/   # Supabase integration
+├── integrations/   # (unused)
 └── lib/           # Utility functions
 ```
 

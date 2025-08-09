@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, TrendingUp, TrendingDown, Users, AlertCircle, Calendar, FileText } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { customersApi, transactionsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,69 +66,59 @@ const Reports = () => {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      // Fetch customers
+      const customersRes = await customersApi.list({ limit: 1000 });
+      const customers = customersRes.data || [];
 
-      // Fetch customers for stats calculation
-      const { data: customers, error: customersError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('user_id', user.id);
-      if (customersError) throw customersError;
-
-      // Calculate stats using the same logic as dashboard
+      // Compute stats
       const netReceivable = customers
-        ?.filter(c => Number(c.due_amount) > 0)
-        .reduce((sum, c) => sum + Number(c.due_amount), 0) || 0;
+        .filter(c => Number(c.due_amount) > 0)
+        .reduce((sum, c) => sum + Number(c.due_amount), 0);
       const netPayable = customers
-        ?.filter(c => Number(c.due_amount) < 0)
-        .reduce((sum, c) => sum + Math.abs(Number(c.due_amount)), 0) || 0;
-      const customersWithDue = customers?.filter(c => Number(c.due_amount) > 0).length || 0;
+        .filter(c => Number(c.due_amount) < 0)
+        .reduce((sum, c) => sum + Math.abs(Number(c.due_amount)), 0);
+      const customersWithDue = customers.filter(c => Number(c.due_amount) > 0).length;
 
       setStats({
         netReceivable,
         netPayable,
-        totalCustomers: customers?.length || 0,
+        totalCustomers: customers.length,
         customersWithDue,
       });
 
-      // Fetch transactions for customer reports
-      const { data: transactions, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id);
-      if (transactionsError) throw transactionsError;
+      // Fetch transactions
+      const transactionsRes = await transactionsApi.list({ limit: 5000 });
+      const transactions = transactionsRes.data || [];
 
-      // Generate customer reports
-      const reports: CustomerReport[] = customers?.map(customer => {
-        const customerTransactions = transactions?.filter(t => t.customer_id === customer.id) || [];
+      // Build reports per customer
+      const reports: CustomerReport[] = customers.map((customer) => {
+        const customerTransactions = transactions.filter(t => {
+          const customerId = typeof t.customer === 'string' ? t.customer : (t.customer as any)._id;
+          return customerId === (customer as any)._id;
+        });
         const totalGiven = customerTransactions
           .filter(t => t.type === 'given')
-          .reduce((sum, t) => sum + t.amount - (t.refund_amount || 0), 0);
+          .reduce((sum, t) => sum + (t.amount || 0) - (t.refund_amount || 0), 0);
         const totalReceived = customerTransactions
           .filter(t => t.type === 'received')
-          .reduce((sum, t) => sum + t.amount - (t.refund_amount || 0), 0);
-        
-        const lastTransaction = customerTransactions.length > 0 
-          ? customerTransactions.sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime())[0]
+          .reduce((sum, t) => sum + (t.amount || 0) - (t.refund_amount || 0), 0);
+        const lastTransaction = customerTransactions.length > 0
+          ? customerTransactions
+              .slice()
+              .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime())[0]
           : null;
 
         return {
-          id: customer.id,
-          name: customer.name,
-          phone: customer.phone || '',
-          due_amount: customer.due_amount || 0,
+          id: (customer as any)._id,
+          name: (customer as any).name,
+          phone: ((customer as any).phone as string) || '',
+          due_amount: (customer as any).due_amount || 0,
           total_given: totalGiven,
           total_received: totalReceived,
           transaction_count: customerTransactions.length,
           last_transaction: lastTransaction ? `${lastTransaction.date} ${lastTransaction.time}` : '',
         };
-      }) || [];
+      });
 
       setCustomerReports(reports);
     } catch (error) {
