@@ -4,13 +4,13 @@ A comprehensive business ledger application for Bangladeshi shopkeepers, built w
 
 ## 🌟 Features
 
-- **User Authentication** - Email/password login with JWT (Express + MongoDB)
+- **User Authentication** - Email/password login with JWT (Express + MongoDB) and Google Login
 - **Customer Management** - Add, edit, delete customers with search
 - **Transaction Recording** - Track given/received amounts (দিলাম/পেলাম)
 - **Business Reports** - Detailed analytics with date filtering
 - **Mobile Responsive** - Works perfectly on all devices
 - **Bangla Language** - Complete UI in Bengali
-- **Real-time Updates** - Live data synchronization
+- **Real-time Updates** - RTK Query based reactive updates
 
 ## 🚀 Quick Start
 
@@ -104,16 +104,19 @@ Create a `.env` file for local development:
 
 ```env
 VITE_API_URL=http://localhost:5000
+VITE_GOOGLE_CLIENT_ID=721095559149-6elhnfmgsurgjg9p5qtq086vk1sk6iuo.apps.googleusercontent.com
 ```
 
-Backend `.env` (see `backend/env.example`):
+Backend `.env` (see `backend/env.example` for more):
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/talikhata
-JWT_SECRET=your-secret
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+GOOGLE_CLIENT_ID=721095559149-6elhnfmgsurgjg9p5qtq086vk1sk6iuo.apps.googleusercontent.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_gmail_app_password
+MAIL_FROM=TallyKhata <your_email@gmail.com>
 ```
 
 ## 📊 Database Models

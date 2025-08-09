@@ -2,8 +2,14 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { generateToken, authenticateToken } = require('../middleware/auth');
+const { OAuth2Client } = require('google-auth-library');
+const bcrypt = require('bcryptjs');
+const { sendPasswordResetCode } = require('../services/email');
 
 const router = express.Router();
+
+// Google OAuth2 client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Register new user
 router.post('/register', [
@@ -278,6 +284,118 @@ router.put('/change-password', [
       error: 'Password change failed',
       message: 'Something went wrong while changing password'
     });
+  }
+});
+
+// Google OAuth login using ID token
+router.post('/google', [
+  body('idToken').notEmpty().withMessage('Google ID token is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Invalid request', details: errors.array() });
+    }
+
+    const { idToken } = req.body;
+
+    const ticket = await googleClient.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Login failed', message: 'Invalid Google token' });
+    }
+
+    const email = payload.email.toLowerCase();
+    const name = payload.name || email.split('@')[0];
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({ name, email, password: bcrypt.genSaltSync(8) });
+      await user.save();
+    }
+
+    const token = generateToken(user._id);
+    return res.json({
+      message: 'Login successful',
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      token
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    return res.status(500).json({ error: 'Login failed', message: 'Google login failed' });
+  }
+});
+
+// Request password reset code
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email required').normalizeEmail()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Please check your input', details: errors.array() });
+    }
+
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Avoid user enumeration; respond success regardless
+      return res.json({ message: 'If the email exists, a code has been sent' });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const hash = await bcrypt.hash(code, 10);
+
+    user.resetCodeHash = hash;
+    user.resetCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    await user.save();
+
+    await sendPasswordResetCode({ to: user.email, code });
+
+    return res.json({ message: 'If the email exists, a code has been sent' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ error: 'Failed', message: 'Could not process request' });
+  }
+});
+
+// Reset password with code
+router.post('/reset-password', [
+  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Valid 6-digit code required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Please check your input', details: errors.array() });
+    }
+
+    const { email, code, newPassword } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !user.resetCodeHash || !user.resetCodeExpiresAt) {
+      return res.status(400).json({ error: 'Invalid code', message: 'Invalid or expired code' });
+    }
+
+    if (new Date() > new Date(user.resetCodeExpiresAt)) {
+      return res.status(400).json({ error: 'Expired code', message: 'Code has expired' });
+    }
+
+    const isValid = await bcrypt.compare(code, user.resetCodeHash);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid code', message: 'Invalid or expired code' });
+    }
+
+    user.password = newPassword;
+    user.resetCodeHash = null;
+    user.resetCodeExpiresAt = null;
+    await user.save();
+
+    return res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Failed', message: 'Could not reset password' });
   }
 });
 

@@ -84,6 +84,9 @@ export const authApi = {
   async login(payload: { email: string; password: string }): Promise<AuthResponse> {
     return apiFetch<AuthResponse>('/auth/login', { method: 'POST', body: payload });
   },
+  async googleLogin(payload: { idToken: string }): Promise<AuthResponse> {
+    return apiFetch<AuthResponse>('/auth/google', { method: 'POST', body: payload });
+  },
   async profile(): Promise<{ message: string; user: AuthUser }> {
     return apiFetch<{ message: string; user: AuthUser }>('/auth/profile');
   },
@@ -92,6 +95,12 @@ export const authApi = {
   },
   async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
     return apiFetch<{ message: string }>('/auth/change-password', { method: 'PUT', body: payload });
+  },
+  async forgotPassword(payload: { email: string }): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/auth/forgot-password', { method: 'POST', body: payload });
+  },
+  async resetPassword(payload: { email: string; code: string; newPassword: string }): Promise<{ message: string }> {
+    return apiFetch<{ message: string }>('/auth/reset-password', { method: 'POST', body: payload });
   }
 };
 

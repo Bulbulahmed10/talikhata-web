@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -104,18 +104,85 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     toast({ title: "উপলব্ধ নয়", description: "গুগল লগিন বর্তমানে সমর্থিত নয়।" });
   };
 
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify'>('request');
+
+  // Load Google Identity Services and render button
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+    if (!clientId) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      // @ts-ignore
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        // @ts-ignore
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response: any) => {
+            try {
+              if (!response?.credential) throw new Error('Google credential missing');
+              const res = await authApi.googleLogin({ idToken: response.credential });
+              await login(res.token);
+              navigate('/');
+            } catch (err) {
+              toast({ title: 'গুগল লগিন ব্যর্থ', description: err instanceof Error ? err.message : 'লগিন করা যায়নি', variant: 'destructive' });
+            }
+          },
+        });
+        if (googleButtonRef.current) {
+          // @ts-ignore
+          window.google.accounts.id.renderButton(googleButtonRef.current, { theme: 'outline', size: 'large', width: 320 });
+        }
+      }
+    };
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, [login, navigate, toast]);
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotPasswordLoading(true);
-
     try {
-      toast({ title: "উপলব্ধ নয়", description: "পাসওয়ার্ড রিসেট ফিচার শীঘ্রই আসছে।" });
-      setShowForgotPassword(false);
-      setForgotPasswordEmail("");
+      if (forgotStep === 'request') {
+        await authApi.forgotPassword({ email: forgotPasswordEmail });
+        toast({ title: 'কোড পাঠানো হয়েছে', description: 'আপনার ইমেইলে ৬-সংখ্যার কোড পাঠানো হয়েছে।' });
+        setForgotStep('verify');
+      } else {
+        // verify step handled in a separate handler
+      }
     } catch (error) {
-      toast({ title: "ত্রুটি", description: "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।", variant: "destructive" });
+      toast({ title: 'ত্রুটি', description: error instanceof Error ? error.message : 'পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।', variant: 'destructive' });
     }
+    setForgotPasswordLoading(false);
+  };
 
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
+  const handleVerifyReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    try {
+      if (resetCode.length !== 6) {
+        throw new Error('৬-সংখ্যার কোড লিখুন');
+      }
+      if (newPassword.length < 6) {
+        throw new Error('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+      }
+      await authApi.resetPassword({ email: forgotPasswordEmail, code: resetCode, newPassword });
+      toast({ title: 'সফল!', description: 'পাসওয়ার্ড রিসেট হয়েছে। এখন লগিন করুন।' });
+      setShowForgotPassword(false);
+      setForgotStep('request');
+      setForgotPasswordEmail('');
+      setResetCode('');
+      setNewPassword('');
+    } catch (error) {
+      toast({ title: 'ত্রুটি', description: error instanceof Error ? error.message : 'রিসেট করতে সমস্যা হয়েছে।', variant: 'destructive' });
+    }
     setForgotPasswordLoading(false);
   };
 
@@ -201,27 +268,15 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                   লগিন করুন
                 </Button>
                 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+                <div className="flex flex-col items-center gap-3 mt-2">
+                  <div className="relative w-full">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">অথবা</span>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      অথবা
-                    </span>
-                  </div>
+                  <div ref={googleButtonRef} className="flex justify-center" />
                 </div>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                >
-                  <span className="mr-2 text-lg">G</span>
-                  গুগল দিয়ে লগিন করুন
-                </Button>
               </form>
             </TabsContent>
             
@@ -335,33 +390,44 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
       </Card>
 
       {/* Forgot Password Dialog */}
-      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+      <Dialog open={showForgotPassword} onOpenChange={(open) => { setShowForgotPassword(open); if (!open) { setForgotStep('request'); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>পাসওয়ার্ড রিসেট করুন</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleForgotPassword} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="forgotEmail">ইমেইল</Label>
-              <Input
-                id="forgotEmail"
-                type="email"
-                value={forgotPasswordEmail}
-                onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                placeholder="আপনার ইমেইল লিখুন"
-                required
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={forgotPasswordLoading} className="flex-1">
-                {forgotPasswordLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                রিসেট লিংক পাঠান
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)}>
-                বাতিল
-              </Button>
-            </div>
-          </form>
+          {forgotStep === 'request' ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgotEmail">ইমেইল</Label>
+                <Input id="forgotEmail" type="email" value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)} placeholder="আপনার ইমেইল লিখুন" required />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={forgotPasswordLoading} className="flex-1">
+                  {forgotPasswordLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  কোড পাঠান
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowForgotPassword(false)}>বাতিল</Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyReset} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code">৬-সংখ্যার কোড</Label>
+                <Input id="code" value={resetCode} onChange={(e) => setResetCode(e.target.value)} maxLength={6} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPass">নতুন পাসওয়ার্ড</Label>
+                <Input id="newPass" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={forgotPasswordLoading} className="flex-1">
+                  {forgotPasswordLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  পাসওয়ার্ড রিসেট করুন
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setForgotStep('request')}>পেছনে</Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

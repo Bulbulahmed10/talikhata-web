@@ -16,6 +16,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { useAppDispatch } from "@/store/hooks";
 import { addTransaction, updateTransaction, removeTransaction } from "@/store/slices/transactionSlice";
 import { updateCustomerBalance } from "@/store/slices/customerSlice";
+import { useCreateTransactionMutation, useUpdateTransactionMutation } from "@/store/api/transactionApi";
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -54,6 +55,8 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const dispatch = useAppDispatch();
+  const [createTransaction] = useCreateTransactionMutation();
+  const [updateTransactionMutation] = useUpdateTransactionMutation();
 
   const handleInputChange = (field: keyof TransactionData, value: string | boolean) => {
     setFormData(prev => ({
@@ -84,54 +87,25 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
         throw new Error("ফেরতের পরিমাণ মূল পরিমাণের চেয়ে বেশি হতে পারে না");
       }
 
-      const transactionData = {
+      const payload: any = {
         customer_id: customer.id,
         type: formData.type,
-        amount: amount,
-        note: formData.note,
+        amount,
+        note: formData.note || undefined,
         date: formData.date,
         time: formData.time,
-        due_date: formData.due_date || null,
-        reminder_type: formData.reminder_type,
+        due_date: formData.due_date || undefined,
         refund_amount: refundAmount,
-        refund_note: formData.refund_note || null,
       };
 
-      console.log('Transaction data prepared:', transactionData);
+      console.log('Transaction data prepared:', payload);
 
       if (mode === 'add') {
-        await transactionsApi.create({
-          customer: transactionData.customer_id,
-          type: transactionData.type,
-          amount: transactionData.amount,
-          refund_amount: transactionData.refund_amount,
-          note: transactionData.note || undefined,
-          date: transactionData.date,
-          time: transactionData.time,
-          due_date: transactionData.due_date || undefined,
-        });
-
-        toast({
-          title: "সফল!",
-          description: "লেনদেন যোগ করা হয়েছে।",
-        });
+        await createTransaction(payload).unwrap();
+        toast({ title: "সফল!", description: "লেনদেন যোগ করা হয়েছে।" });
       } else {
-        // For edit mode, let the database trigger handle balance calculation
-        // Update the current transaction
-        await transactionsApi.update(transaction!.id, {
-          type: transactionData.type,
-          amount: transactionData.amount,
-          refund_amount: transactionData.refund_amount,
-          note: transactionData.note || undefined,
-          date: transactionData.date,
-          time: transactionData.time,
-          due_date: transactionData.due_date || undefined,
-        });
-
-        toast({
-          title: "সফল!",
-          description: "লেনদেন আপডেট হয়েছে।",
-        });
+        await updateTransactionMutation({ id: transaction!.id, data: payload }).unwrap();
+        toast({ title: "সফল!", description: "লেনদেন আপডেট হয়েছে।" });
       }
 
       onSuccess();
@@ -139,11 +113,7 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
       
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      toast({
-        title: "ত্রুটি",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "ত্রুটি", description: errorMessage, variant: "destructive" });
     }
 
     setLoading(false);

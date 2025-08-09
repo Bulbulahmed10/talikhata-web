@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: null
+  },
+  resetCodeHash: {
+    type: String,
+    default: null
+  },
+  resetCodeExpiresAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
