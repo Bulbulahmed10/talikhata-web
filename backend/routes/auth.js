@@ -182,7 +182,11 @@ router.put('/profile', [
     .optional()
     .isEmail()
     .normalizeEmail()
-    .withMessage('Please enter a valid email')
+    .withMessage('Please enter a valid email'),
+  body('profilePictureUrl')
+    .optional()
+    .isURL()
+    .withMessage('Please provide a valid URL')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -195,10 +199,11 @@ router.put('/profile', [
       });
     }
 
-    const { name, email } = req.body;
+    const { name, email, profilePictureUrl } = req.body;
     const updates = {};
 
     if (name) updates.name = name;
+    if (profilePictureUrl !== undefined) updates.profilePictureUrl = profilePictureUrl;
     if (email) {
       // Check if email is already taken by another user
       const existingUser = await User.findOne({ email, _id: { $ne: req.user._id } });

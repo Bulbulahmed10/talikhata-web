@@ -34,7 +34,7 @@ const Header = () => {
           business_name: res.user.name || res.user.email.split('@')[0],
           plan: 'free',
           full_name: res.user.name,
-          profile_picture_url: undefined,
+          profile_picture_url: (res.user as any).profilePictureUrl || '',
         });
       } catch {
         setProfile(null);
@@ -64,7 +64,7 @@ const Header = () => {
       business_name: res.user.name || res.user.email.split('@')[0],
       plan: 'free',
       full_name: res.user.name,
-      profile_picture_url: undefined,
+      profile_picture_url: (res.user as any).profilePictureUrl || '',
     })).catch(() => setProfile(null));
   };
 

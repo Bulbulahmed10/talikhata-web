@@ -12,6 +12,7 @@ import { Loader2, Upload, Camera, X, User, Settings, Bell, Mail } from "lucide-r
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api";
 import DarkModeToggle from "./DarkModeToggle";
+import { getAuthToken } from "@/lib/api";
 
 interface User {
   id: string;
@@ -105,42 +106,39 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
 
   const handlePhotoUpload = async (file: File) => {
     if (!file) return;
-
-    // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast({
-        title: "ত্রুটি",
-        description: "শুধুমাত্র ছবি আপলোড করা যাবে।",
-        variant: "destructive",
-      });
+      toast({ title: "ত্রুটি", description: "শুধুমাত্র ছবি আপলোড করা যাবে।", variant: "destructive" });
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "ত্রুটি",
-        description: "ছবির আকার ৫ মেগাবাইটের কম হতে হবে।",
-        variant: "destructive",
-      });
+      toast({ title: "ত্রুটি", description: "ছবির আকার ৫ মেগাবাইটের কম হতে হবে।", variant: "destructive" });
       return;
     }
 
     setUploadingPhoto(true);
     try {
-      // Uploading not implemented on backend yet
-      throw new Error('ছবি আপলোড সাময়িকভাবে বন্ধ আছে।');
-    } catch (error: unknown) {
-      console.error('Photo upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : "ছবি আপলোড করতে সমস্যা হয়েছে।";
-      toast({
-        title: "ত্রুটি",
-        description: errorMessage,
-        variant: "destructive",
+      const form = new FormData();
+      form.append('image', file);
+      const token = getAuthToken();
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/uploads/image`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } as any : undefined,
+        body: form,
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, profile_picture_url: data.url }));
+      setPhotoPreview(data.url);
+      toast({ title: 'আপলোড সফল', description: 'প্রোফাইল ছবি আপলোড হয়েছে।' });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'ছবি আপলোড করতে সমস্যা হয়েছে।';
+      toast({ title: 'ত্রুটি', description: msg, variant: 'destructive' });
+    } finally {
+      setUploadingPhoto(false);
     }
-
-    setUploadingPhoto(false);
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,30 +161,18 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     setLoading(true);
 
     try {
-      const profileData: any = {
-        name: formData.full_name,
-        // email change handled elsewhere; we only send provided fields if present
-      };
-      await authApi.updateProfile(profileData);
-
-      toast({
-        title: "সফল!",
-        description: "প্রোফাইল আপডেট হয়েছে।",
-      });
-
+      const res = await authApi.updateProfile({ name: formData.full_name || user.email, profilePictureUrl: formData.profile_picture_url || undefined });
+      toast({ title: "সফল!", description: "প্রোফাইল আপডেট হয়েছে।" });
       onSuccess();
+      // reflect immediate UI
+      setPhotoPreview((res.user as any).profilePictureUrl || formData.profile_picture_url || null);
       onClose();
-      
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "অপারেশন সম্পন্ন করতে সমস্যা হয়েছে।";
-      toast({
-        title: "ত্রুটি",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "ত্রুটি", description: errorMessage, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {

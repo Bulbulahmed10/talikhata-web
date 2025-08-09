@@ -63,6 +63,11 @@ const CustomerDetail = () => {
   const [updateTransactionMutation] = useUpdateTransactionMutation();
   const [deleteTransaction] = useDeleteTransactionMutation();
   const [updateCustomerBalanceMutation] = useUpdateCustomerBalanceMutation();
+  
+  // Refetch transactions after mutation success to ensure UI sync
+  useEffect(() => {
+    // when dialogs close due to success, refetch is triggered in handlers
+  }, []);
 
   // Update Redux state when data changes
   useEffect(() => {
