@@ -10,14 +10,33 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Upload, Camera, X, User, Settings, Bell, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/lib/api";
 import DarkModeToggle from "./DarkModeToggle";
+
+interface User {
+  id: string;
+  email: string;
+}
+
+interface Profile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  age: number | null;
+  gender: string;
+  profile_picture_url: string;
+  email_notifications: boolean;
+  sms_notifications: boolean;
+  dark_mode: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface UserProfileProps {
   isOpen: boolean;
   onClose: () => void;
-  user: any;
-  profile: any | null;
+  user: User;
+  profile: Profile | null;
   onSuccess: () => void;
 }
 
@@ -108,44 +127,15 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     }
 
     setUploadingPhoto(true);
-
     try {
-      // Create unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-             // Upload to Supabase Storage
-       const { data, error } = await supabase.storage
-         .from('profile-photos')
-         .upload(fileName, file, {
-           cacheControl: '3600',
-           upsert: false
-         });
-
-       if (error) throw error;
-
-       // Get public URL
-       const { data: { publicUrl } } = supabase.storage
-         .from('profile-photos')
-         .getPublicUrl(fileName);
-
-      setFormData(prev => ({
-        ...prev,
-        profile_picture_url: publicUrl
-      }));
-
-      setPhotoPreview(publicUrl);
-
-      toast({
-        title: "সফল!",
-        description: "প্রোফাইল ছবি আপলোড হয়েছে।",
-      });
-
-    } catch (error: any) {
+      // Uploading not implemented on backend yet
+      throw new Error('ছবি আপলোড সাময়িকভাবে বন্ধ আছে।');
+    } catch (error: unknown) {
       console.error('Photo upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : "ছবি আপলোড করতে সমস্যা হয়েছে।";
       toast({
         title: "ত্রুটি",
-        description: "ছবি আপলোড করতে সমস্যা হয়েছে।",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -173,18 +163,11 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     setLoading(true);
 
     try {
-      const profileData = {
-        ...formData,
-        age: formData.age ? parseInt(formData.age) : null,
-        user_id: user.id
+      const profileData: any = {
+        name: formData.full_name,
+        // email change handled elsewhere; we only send provided fields if present
       };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await authApi.updateProfile(profileData);
 
       toast({
         title: "সফল!",
@@ -194,10 +177,11 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
       onSuccess();
       onClose();
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "অপারেশন সম্পন্ন করতে সমস্যা হয়েছে।";
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -229,11 +213,10 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
     setChangingPassword(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
+      await authApi.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
       });
-
-      if (error) throw error;
 
       toast({
         title: "সফল!",
@@ -247,10 +230,11 @@ const UserProfile = ({ isOpen, onClose, user, profile, onSuccess }: UserProfileP
       });
       setShowPasswordSection(false);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "পাসওয়ার্ড পরিবর্তন করতে সমস্যা হয়েছে।";
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }

@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Upload, Camera, X, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { customersApi } from "@/lib/api";
+
+import { Customer } from "@/types";
 
 interface CustomerFormProps {
   isOpen: boolean;
   onClose: () => void;
-  customer?: any;
+  customer?: Customer;
   onSuccess: () => void;
   mode: 'add' | 'edit';
 }
@@ -72,80 +74,11 @@ const CustomerForm = ({ isOpen, onClose, customer, onSuccess, mode }: CustomerFo
     }));
   };
 
-  const handlePhotoUpload = async (file: File) => {
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "ত্রুটি",
-        description: "শুধুমাত্র ছবি আপলোড করা যাবে।",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "ত্রুটি",
-        description: "ছবির আকার ৫ মেগাবাইটের কম হতে হবে।",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadingPhoto(true);
-
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      // Create unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('customer-photos')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('customer-photos')
-        .getPublicUrl(fileName);
-
-      setFormData(prev => ({
-        ...prev,
-        photo_url: publicUrl
-      }));
-
-      setPhotoPreview(publicUrl);
-
-      toast({
-        title: "সফল!",
-        description: "ছবি আপলোড হয়েছে।",
-      });
-
-    } catch (error: any) {
-      console.error('Photo upload error:', error);
-      toast({
-        title: "ত্রুটি",
-        description: "ছবি আপলোড করতে সমস্যা হয়েছে।",
-        variant: "destructive",
-      });
-    }
-
-    setUploadingPhoto(false);
+  const handlePhotoUpload = async (_file: File) => {
+    toast({
+      title: "ফিচার অনুপলব্ধ",
+      description: "ছবি আপলোড সাময়িকভাবে বন্ধ আছে। দয়া করে সরাসরি ছবির URL ব্যবহার করুন।",
+    });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,51 +107,19 @@ const CustomerForm = ({ isOpen, onClose, customer, onSuccess, mode }: CustomerFo
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
-      const customerData = {
-        ...formData,
-        user_id: user.id
-      };
-
+      const payload = { ...formData } as any;
       if (mode === 'add') {
-        const { error } = await supabase
-          .from('customers')
-          .insert([customerData]);
-
-        if (error) throw error;
-
-        toast({
-          title: "সফল!",
-          description: "নতুন গ্রাহক যোগ করা হয়েছে।",
-        });
+        await customersApi.create(payload);
+        toast({ title: "সফল!", description: "নতুন গ্রাহক যোগ করা হয়েছে।" });
       } else {
-        const { error } = await supabase
-          .from('customers')
-          .update(customerData)
-          .eq('id', customer.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "সফল!",
-          description: "গ্রাহকের তথ্য আপডেট হয়েছে।",
-        });
+        await customersApi.update(customer!.id, payload);
+        toast({ title: "সফল!", description: "গ্রাহকের তথ্য আপডেট হয়েছে।" });
       }
-
       onSuccess();
       onClose();
-      
-    } catch (error: any) {
-      toast({
-        title: "ত্রুটি",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "অপারেশন সম্পন্ন করতে সমস্যা হয়েছে।";
+      toast({ title: "ত্রুটি", description: errorMessage, variant: "destructive" });
     }
 
     setLoading(false);

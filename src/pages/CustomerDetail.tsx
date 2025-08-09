@@ -1,191 +1,88 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Phone, TrendingUp, TrendingDown, Loader2, Send, Mail, MapPin, User, Edit, Trash2, Clock, RefreshCw, SortAsc, SortDesc, Filter } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Plus, Phone, TrendingUp, TrendingDown, Send, Mail, MapPin, User, Edit, Trash2, Clock, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { 
+  useGetCustomerQuery, 
+  useUpdateCustomerBalanceMutation
+} from "@/store/api/customerApi";
+import { 
+  useGetCustomerTransactionsQuery,
+  useCreateTransactionMutation,
+  useUpdateTransactionMutation,
+  useDeleteTransactionMutation
+} from "@/store/api/transactionApi";
+import { 
+  setCurrentCustomer, 
+  updateCustomerBalance
+} from "@/store/slices/customerSlice";
+import { 
+  addTransaction,
+  updateTransaction,
+  removeTransaction,
+  setCurrentCustomerTransactions
+} from "@/store/slices/transactionSlice";
+import { triggerAnimation, setLoading, setShowSkeleton } from "@/store/slices/uiSlice";
 import CustomerForm from "@/components/CustomerForm";
 import TransactionForm from "@/components/TransactionForm";
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  description: string | null;
-  photo_url: string | null;
-  due_amount: number;
-  created_at: string;
-  updated_at: string;
-  send_email_notifications: boolean;
-  send_sms_notifications: boolean;
-}
-
-interface Transaction {
-  id: string;
-  type: "given" | "received";
-  amount: number;
-  note: string;
-  date: string;
-  time: string;
-  refund_amount: number;
-  refund_note: string | null;
-  created_at: string;
-}
-
-interface CustomerData {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  description: string | null;
-  photo_url: string | null;
-  due_amount: number;
-  created_at: string;
-  updated_at: string;
-  send_email_notifications: boolean;
-  send_sms_notifications: boolean;
-}
-
-type SortOption = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "type" | "net-amount";
+import { CustomerDetailSkeleton } from "@/components/common/Skeleton";
+import { AnimatedCard, FadeIn, SlideIn } from "@/components/AnimatedCard";
+import { formatCurrency, formatTime, formatDueDate, getInitials, formatDate } from "@/utils/formatters";
+import { TransactionItem, StatCard } from "@/components/common";
+import { Transaction, Customer, SortOption } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 const CustomerDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const dispatch = useAppDispatch();
   
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Local state
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditTransactionDialog, setShowEditTransactionDialog] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>("date-desc");
 
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('bn-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 0,
-    }).format(Math.abs(amount));
-  };
+  // RTK Query hooks
+  const { data: customer, isLoading: customerLoading, error: customerError } = useGetCustomerQuery(id!, { skip: !id });
+  const { data: transactions, isLoading: transactionLoading, error: transactionError, refetch: refetchTransactions } = useGetCustomerTransactionsQuery(id!, { skip: !id });
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('bn-BD', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  // Mutations
+  const [createTransaction] = useCreateTransactionMutation();
+  const [updateTransactionMutation] = useUpdateTransactionMutation();
+  const [deleteTransaction] = useDeleteTransactionMutation();
+  const [updateCustomerBalanceMutation] = useUpdateCustomerBalanceMutation();
 
-  const formatTime = (dateString: string, timeString: string) => {
-    const date = new Date(`${dateString}T${timeString}`);
-    const now = new Date();
-    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    // If within 24 hours, show relative time
-    if (diffInHours < 24) {
-      if (diffInHours < 1) {
-        const diffInMinutes = Math.floor(diffInHours * 60);
-        return `${diffInMinutes} মিনিট আগে`;
-      } else if (diffInHours < 2) {
-        return "১ ঘন্টা আগে";
-      } else {
-        return `${Math.floor(diffInHours)} ঘন্টা আগে`;
-      }
+  // Update Redux state when data changes
+  useEffect(() => {
+    if (customer) {
+      dispatch(setCurrentCustomer(customer));
+      dispatch(triggerAnimation('customer-loaded'));
     }
-    
-    // Otherwise show formatted date and time
-    return date.toLocaleString('bn-BD', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(word => word[0]).join('');
-  };
-
-  const fetchCustomerData = useCallback(async () => {
-    if (!id) return;
-    
-    setLoading(true);
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    try {
-      // Fetch customer details
-      const { data: customerData, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (customerError) throw customerError;
-      setCustomer({
-        ...customerData,
-        email: (customerData as CustomerData).email || null,
-        address: (customerData as CustomerData).address || null,
-        description: (customerData as CustomerData).description || null,
-        photo_url: (customerData as CustomerData).photo_url || null,
-        send_email_notifications: (customerData as CustomerData).send_email_notifications ?? true,
-        send_sms_notifications: (customerData as CustomerData).send_sms_notifications ?? false,
-      } as Customer);
-
-      // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('customer_id', id)
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .order('time', { ascending: false });
-
-      if (transactionsError) throw transactionsError;
-      setTransactions((transactionsData || []) as Transaction[]);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      toast({
-        title: "ত্রুটি",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-    setLoading(false);
-  }, [id, toast]);
+  }, [customer, dispatch]);
 
   useEffect(() => {
-    if (user && !authLoading) {
-      fetchCustomerData();
+    if (transactions) {
+      dispatch(setCurrentCustomerTransactions(transactions));
+      dispatch(triggerAnimation('transactions-loaded'));
     }
-  }, [user, authLoading, fetchCustomerData]);
+  }, [transactions, dispatch]);
 
   // Sort and filter transactions
   useEffect(() => {
+    if (!transactions) return;
+    
     const sorted = [...transactions];
     
     switch (sortBy) {
@@ -201,14 +98,18 @@ const CustomerDetail = () => {
       case "amount-asc":
         sorted.sort((a, b) => a.amount - b.amount);
         break;
-      case "type":
-        sorted.sort((a, b) => a.type.localeCompare(b.type));
-        break;
-      case "net-amount":
+      case "received":
         sorted.sort((a, b) => {
-          const netA = a.amount - (a.refund_amount || 0);
-          const netB = b.amount - (b.refund_amount || 0);
-          return netB - netA;
+          if (a.type === "received" && b.type !== "received") return -1;
+          if (a.type !== "received" && b.type === "received") return 1;
+          return new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime();
+        });
+        break;
+      case "given":
+        sorted.sort((a, b) => {
+          if (a.type === "given" && b.type !== "given") return -1;
+          if (a.type !== "given" && b.type === "given") return 1;
+          return new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime();
         });
         break;
     }
@@ -216,16 +117,30 @@ const CustomerDetail = () => {
     setFilteredTransactions(sorted);
   }, [transactions, sortBy]);
 
+  // Calculate totals
+  const totalReceived = transactions
+    ?.filter(t => t.type === "received")
+    .reduce((sum, t) => sum + t.amount - (t.refund_amount || 0), 0) || 0;
+
+  const totalGiven = transactions
+    ?.filter(t => t.type === "given")
+    .reduce((sum, t) => sum + t.amount - (t.refund_amount || 0), 0) || 0;
+
+  const calculatedNetReceivable = totalGiven - totalReceived;
+
   const handleCustomerSuccess = () => {
     setShowEditDialog(false);
-    fetchCustomerData(); // Refresh customer data
+    dispatch(triggerAnimation('customer-updated'));
   };
 
-  const handleTransactionSuccess = () => {
+  const handleTransactionSuccess = async () => {
     setShowAddDialog(false);
     setShowEditTransactionDialog(false);
     setSelectedTransaction(null);
-    fetchCustomerData(); // Refresh data
+    dispatch(triggerAnimation('transaction-added'));
+    
+    // Refetch the transaction data to show real-time updates
+    await refetchTransactions();
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -238,30 +153,38 @@ const CustomerDetail = () => {
       return;
     }
 
-    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', transactionId);
+      await deleteTransaction({ id: transactionId, customerId: id! });
+      dispatch(removeTransaction(transactionId));
+      dispatch(triggerAnimation('transaction-deleted'));
+      
+      // Let the database trigger handle balance calculation
+      // Fetch updated customer data to get the new balance
+      const { data: updatedCustomer, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', id!)
+        .single();
 
-      if (error) throw error;
+      if (customerError) {
+        console.error('Error fetching updated customer:', customerError);
+        throw new Error('গ্রাহকের তথ্য আপডেট করতে সমস্যা হয়েছে');
+      }
 
+      // The database trigger will handle balance calculation automatically
+      // No need to manually update Redux store here
+      
       toast({
         title: "সফল!",
         description: "লেনদেন মুছে ফেলা হয়েছে।",
       });
-      
-      fetchCustomerData(); // Refresh data
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    } catch (error) {
       toast({
         title: "ত্রুটি",
-        description: errorMessage,
+        description: "লেনদেন মুছে ফেলতে সমস্যা হয়েছে।",
         variant: "destructive",
       });
     }
-    setLoading(false);
   };
 
   const handleSendReminder = async () => {
@@ -280,21 +203,18 @@ const CustomerDetail = () => {
     });
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+  // Loading states
+  if (authLoading || customerLoading || transactionLoading) {
+    return <CustomerDetailSkeleton />;
   }
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="p-4 lg:p-6 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">গ্রাহক পাওয়া যায়নি</h2>
           <Button onClick={() => navigate("/customers")}>
-            ফিরে যান
+            গ্রাহক তালিকায় ফিরে যান
           </Button>
         </div>
       </div>
@@ -302,15 +222,11 @@ const CustomerDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6">
+      <FadeIn>
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/customers")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              ফিরে যান
-            </Button>
+        <SlideIn direction="up" delay={0.1}>
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
                 <AvatarImage src={customer.photo_url || undefined} />
@@ -336,28 +252,28 @@ const CustomerDetail = () => {
                 </div>
               </div>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEditDialog(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              সম্পাদনা করুন
-            </Button>
-            {customer.due_amount > 0 && customer.phone && (
-              <Button variant="outline" onClick={handleSendReminder}>
-                <Send className="h-4 w-4 mr-2" />
-                রিমাইন্ডার পাঠান
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                সম্পাদনা করুন
               </Button>
-            )}
-            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  নতুন লেনদেন
+              {customer.due_amount > 0 && customer.phone && (
+                <Button variant="outline" onClick={handleSendReminder}>
+                  <Send className="h-4 w-4 mr-2" />
+                  রিমাইন্ডার পাঠান
                 </Button>
-              </DialogTrigger>
-            </Dialog>
+              )}
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    নতুন লেনদেন
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+            </div>
           </div>
-        </div>
+        </SlideIn>
 
         {/* Customer Information */}
         {(customer.address || customer.description) && (
@@ -394,22 +310,52 @@ const CustomerDetail = () => {
             <CardTitle>বর্তমান ব্যালেন্স</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-2">
-                {customer.due_amount > 0 ? (
-                  <span className="text-destructive">
-                   নেট পাওনা: {formatAmount(customer.due_amount)}
-                  </span>
-                ) : customer.due_amount < 0 ? (
-                  <span className="text-secondary">
-                    নেট দেনা: {formatAmount(customer.due_amount)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">সমান</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold mb-2">
+                  {customer.due_amount > 0 ? (
+                    <span className="text-success">
+                     নেট পাওনা: {formatCurrency(customer.due_amount)}
+                    </span>
+                  ) : customer.due_amount < 0 ? (
+                    <span className="text-destructive">
+                      নেট দেনা: {formatCurrency(Math.abs(customer.due_amount))}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">সমান</span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">বর্তমান ব্যালেন্স (ডাটাবেস)</p>
+                {Math.abs(customer.due_amount - calculatedNetReceivable) > 0.01 && (
+                  <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <p className="text-xs text-orange-700 dark:text-orange-300 font-medium mb-1">
+                      ⚠️ ব্যালেন্স মিলছে না
+                    </p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
+                      গণনা: {formatCurrency(calculatedNetReceivable)}
+                    </p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
+                      ডাটাবেস: {formatCurrency(customer.due_amount)}
+                    </p>
+                  </div>
                 )}
               </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold mb-2 text-success">
+                  {formatCurrency(totalReceived)}
+                </div>
+                <p className="text-sm text-muted-foreground">মোট পেলাম (নেট)</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold mb-2 text-warning">
+                  {formatCurrency(totalGiven)}
+                </div>
+                <p className="text-sm text-muted-foreground">মোট দিলাম (নেট)</p>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
               <p className="text-sm text-muted-foreground">
-                সর্বশেষ আপডেট: {formatDate(customer.updated_at)}
+                সর্বশেষ আপডেট: {formatDate(customer.updated_at, { showTime: true })}
               </p>
             </div>
           </CardContent>
@@ -431,8 +377,8 @@ const CustomerDetail = () => {
                     <SelectItem value="date-asc">পুরাতন থেকে নতুন</SelectItem>
                     <SelectItem value="amount-desc">বড় থেকে ছোট</SelectItem>
                     <SelectItem value="amount-asc">ছোট থেকে বড়</SelectItem>
-                    <SelectItem value="net-amount">নেট পরিমাণ</SelectItem>
-                    <SelectItem value="type">ধরন অনুযায়ী</SelectItem>
+                    <SelectItem value="received">শুধু পেলাম</SelectItem>
+                    <SelectItem value="given">শুধু দিলাম</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -466,9 +412,6 @@ const CustomerDetail = () => {
                             <p className="font-medium">
                               {transaction.type === "received" ? "পেলাম" : "দিলাম"}
                             </p>
-                            <Badge variant={transaction.type === "received" ? "success" : "warning"} className="text-xs">
-                              {transaction.type === "received" ? "পাওয়া" : "দেওয়া"}
-                            </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground max-w-xs truncate">
                             {transaction.note || "কোনো নোট নেই"}
@@ -476,6 +419,18 @@ const CustomerDetail = () => {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {formatTime(transaction.date, transaction.time)}
+                            {transaction.due_date && (
+                              <>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-orange-600">
+                                  পরিশোধের তারিখ: {new Date(transaction.due_date).toLocaleDateString('en-GB', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -484,7 +439,7 @@ const CustomerDetail = () => {
                           <p className={`font-semibold text-lg ${
                             transaction.type === "received" ? "text-success" : "text-warning"
                           }`}>
-                            {transaction.type === "received" ? "+" : "-"}{formatAmount(transaction.amount)}
+                            {transaction.type === "received" ? "+" : "-"}{formatCurrency(transaction.amount)}
                           </p>
                           <div className="flex gap-1">
                             <Button
@@ -513,7 +468,7 @@ const CustomerDetail = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+      </FadeIn>
 
       {/* Edit Customer Dialog */}
       <CustomerForm
@@ -551,4 +506,4 @@ const CustomerDetail = () => {
   );
 };
 
-export default CustomerDetail; 
+export default CustomerDetail;

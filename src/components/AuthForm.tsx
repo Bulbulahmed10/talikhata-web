@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Store, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AuthFormProps {
   onSuccess?: () => void;
@@ -32,40 +33,25 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
   const [signupPassword, setSignupPassword] = useState("");
   
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const res = await authApi.register({
+        name: businessName || signupEmail.split('@')[0],
         email: signupEmail,
         password: signupPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            business_name: businessName,
-            phone: phone,
-          }
-        }
       });
-
-      if (error) {
-        toast({
-          title: "সাইন আপ ত্রুটি",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "সফল!",
-          description: "আপনার অ্যাকাউন্ট তৈরি হয়েছে। অনুগ্রহ করে আপনার ইমেইল যাচাই করুন।",
-        });
-      }
+      await login(res.token);
+      toast({ title: "সফল!", description: "আপনার অ্যাকাউন্ট তৈরি হয়েছে।" });
+      onSuccess?.();
     } catch (error) {
       toast({
-        title: "ত্রুটি",
-        description: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+        title: "সাইন আপ ত্রুটি",
+        description: error instanceof Error ? error.message : "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
         variant: "destructive",
       });
     }
@@ -78,24 +64,13 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "লগিন ত্রুটি",
-          description: "ইমেইল বা পাসওয়ার্ড ভুল।",
-          variant: "destructive",
-        });
-      } else {
-        onSuccess?.();
-      }
+      const res = await authApi.login({ email, password });
+      await login(res.token);
+      onSuccess?.();
     } catch (error) {
       toast({
-        title: "ত্রুটি",
-        description: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+        title: "লগিন ত্রুটি",
+        description: error instanceof Error ? error.message : "ইমেইল বা পাসওয়ার্ড ভুল।",
         variant: "destructive",
       });
     }
@@ -104,32 +79,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
   };
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        }
-      });
-
-      if (error) {
-        toast({
-          title: "গুগল লগিন ত্রুটি",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "ত্রুটি",
-        description: "গুগল লগিন করতে সমস্যা হয়েছে।",
-        variant: "destructive",
-      });
-    }
-
-    setLoading(false);
+    toast({ title: "উপলব্ধ নয়", description: "গুগল লগিন বর্তমানে সমর্থিত নয়।" });
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -137,30 +87,11 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     setForgotPasswordLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-
-      if (error) {
-        toast({
-          title: "ত্রুটি",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "সফল!",
-          description: "পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।",
-        });
-        setShowForgotPassword(false);
-        setForgotPasswordEmail("");
-      }
+      toast({ title: "উপলব্ধ নয়", description: "পাসওয়ার্ড রিসেট ফিচার শীঘ্রই আসছে।" });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail("");
     } catch (error) {
-      toast({
-        title: "ত্রুটি",
-        description: "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।",
-        variant: "destructive",
-      });
+      toast({ title: "ত্রুটি", description: "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।", variant: "destructive" });
     }
 
     setForgotPasswordLoading(false);

@@ -10,26 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Calendar, AlertCircle, Clock, RefreshCw, TrendingUp, TrendingDown, DollarSign, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  due_amount: number;
-}
-
-interface Transaction {
-  id: string;
-  type: "given" | "received";
-  amount: number;
-  note: string;
-  date: string;
-  time: string;
-  refund_amount: number;
-  refund_note: string | null;
-}
+import { transactionsApi } from "@/lib/api";
+import { Customer, Transaction } from "@/types";
+import { formatCurrency } from "@/utils/formatters";
+import { useAppDispatch } from "@/store/hooks";
+import { addTransaction, updateTransaction, removeTransaction } from "@/store/slices/transactionSlice";
+import { updateCustomerBalance } from "@/store/slices/customerSlice";
 
 interface TransactionFormProps {
   isOpen: boolean;
@@ -48,7 +34,6 @@ interface TransactionData {
   time: string;
   due_date: string;
   reminder_type: "email" | "sms" | "both";
-  send_reminder: boolean;
   refund_amount: string;
   refund_note: string;
 }
@@ -62,13 +47,13 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
     time: transaction?.time || new Date().toTimeString().slice(0, 5),
     due_date: transaction?.due_date || "",
     reminder_type: transaction?.reminder_type || "email",
-    send_reminder: transaction?.send_reminder ?? false,
     refund_amount: transaction?.refund_amount?.toString() || "",
     refund_note: transaction?.refund_note || "",
   });
   
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
 
   const handleInputChange = (field: keyof TransactionData, value: string | boolean) => {
     setFormData(prev => ({
@@ -77,25 +62,9 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
     }));
   };
 
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('bn-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 0,
-    }).format(Math.abs(amount));
-  };
+  // Using imported formatCurrency instead of local formatAmount
 
-  const calculateNewBalance = () => {
-    const currentAmount = parseFloat(formData.amount) || 0;
-    const refundAmount = parseFloat(formData.refund_amount) || 0;
-    const currentDue = customer.due_amount || 0;
-    
-    if (formData.type === "given") {
-      return currentDue + currentAmount - refundAmount;
-    } else {
-      return currentDue - currentAmount + refundAmount;
-    }
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,12 +74,6 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
       console.log('Form submitted - starting transaction creation');
       console.log('Customer data:', customer);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
       const amount = parseFloat(formData.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error("সঠিক পরিমাণ লিখুন");
@@ -122,7 +85,6 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
       }
 
       const transactionData = {
-        user_id: user.id,
         customer_id: customer.id,
         type: formData.type,
         amount: amount,
@@ -130,7 +92,7 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
         date: formData.date,
         time: formData.time,
         due_date: formData.due_date || null,
-        reminder_type: formData.send_reminder ? formData.reminder_type : null,
+        reminder_type: formData.reminder_type,
         refund_amount: refundAmount,
         refund_note: formData.refund_note || null,
       };
@@ -138,33 +100,33 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
       console.log('Transaction data prepared:', transactionData);
 
       if (mode === 'add') {
-        console.log('Inserting transaction into database...');
-        const { error } = await supabase
-          .from('transactions')
-          .insert([transactionData]);
-
-        if (error) throw error;
-        console.log('Transaction inserted successfully');
-
-        // Send email notification if customer has email
-        if (customer.email) {
-          console.log('Customer has email, sending notification to:', customer.email);
-          await sendTransactionEmail(customer, transactionData);
-        } else {
-          console.log('Email not sent. Customer email:', customer.email);
-        }
+        await transactionsApi.create({
+          customer: transactionData.customer_id,
+          type: transactionData.type,
+          amount: transactionData.amount,
+          refund_amount: transactionData.refund_amount,
+          note: transactionData.note || undefined,
+          date: transactionData.date,
+          time: transactionData.time,
+          due_date: transactionData.due_date || undefined,
+        });
 
         toast({
           title: "সফল!",
           description: "লেনদেন যোগ করা হয়েছে।",
         });
       } else {
-        const { error } = await supabase
-          .from('transactions')
-          .update(transactionData)
-          .eq('id', transaction?.id);
-
-        if (error) throw error;
+        // For edit mode, let the database trigger handle balance calculation
+        // Update the current transaction
+        await transactionsApi.update(transaction!.id, {
+          type: transactionData.type,
+          amount: transactionData.amount,
+          refund_amount: transactionData.refund_amount,
+          note: transactionData.note || undefined,
+          date: transactionData.date,
+          time: transactionData.time,
+          due_date: transactionData.due_date || undefined,
+        });
 
         toast({
           title: "সফল!",
@@ -187,47 +149,16 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
     setLoading(false);
   };
 
-  const sendTransactionEmail = async (customer: Customer, transaction: typeof transactionData) => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_name')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+  interface TransactionEmailData {
+    amount: number;
+    refund_amount: number;
+    type: "given" | "received";
+    note: string;
+    refund_note: string | null;
+  }
 
-      const businessName = profile?.business_name || 'TallyKhata Business';
-      const currentBalance = customer.due_amount || 0;
-      const transactionAmount = transaction.amount;
-      const refundAmount = transaction.refund_amount || 0;
-      const netAmount = transactionAmount - refundAmount;
-      const newBalance = transaction.type === 'given' 
-        ? currentBalance + netAmount 
-        : currentBalance - netAmount;
-
-      const response = await supabase.functions.invoke('send-transaction-email', {
-        body: {
-          customerEmail: customer.email,
-          customerName: customer.name,
-          transactionType: transaction.type,
-          amount: transactionAmount,
-          refundAmount: refundAmount,
-          netAmount: netAmount,
-          previousBalance: currentBalance,
-          newBalance: newBalance,
-          note: transaction.note,
-          refundNote: transaction.refund_note,
-          businessName: businessName
-        }
-      });
-
-      if (response.error) {
-        console.error('Error sending email:', response.error);
-      } else {
-        console.log('Transaction email sent successfully');
-      }
-    } catch (error) {
-      console.error('Failed to send transaction email:', error);
-    }
+  const sendTransactionEmail = async (_customer: Customer, _transaction: TransactionEmailData) => {
+    // Email sending moved out; not implemented for backend version yet
   };
 
   const getTransactionMessage = () => {
@@ -236,9 +167,9 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
     const netAmount = amount - refundAmount;
     
     if (formData.type === "given") {
-      return `${customer.name} কে ${formatAmount(netAmount)} দেওয়া হয়েছে`;
+      return `${customer.name} কে ${formatCurrency(netAmount)} দেওয়া হয়েছে`;
     } else {
-      return `${customer.name} থেকে ${formatAmount(netAmount)} পাওয়া হয়েছে`;
+      return `${customer.name} থেকে ${formatCurrency(netAmount)} পাওয়া হয়েছে`;
     }
   };
 
@@ -377,28 +308,33 @@ const TransactionForm = ({ isOpen, onClose, customer, onSuccess, mode, transacti
                       value={formData.due_date}
                       onChange={(e) => handleInputChange('due_date', e.target.value)}
                       min={formData.date}
-                      className="h-12 cursor-pointer"
+                      className="h-12 cursor-pointer w-full"
+                      placeholder="DD/MM/YYYY"
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none">
                       <Calendar className="h-4 w-4" />
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    দিন/মাস/বছর ফরম্যাটে তারিখ নির্বাচন করুন
+                  </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-lg border">
-                  <div className="space-y-1">
-                    <Label className="text-base font-medium">স্মরণিকা পাঠানো</Label>
-                    <p className="text-sm text-muted-foreground">
-                      পরিশোধের তারিখের আগে স্মরণিকা পাঠানো হবে
-                    </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-medium">স্মরণিকা পাঠান</Label>
+                    <p className="text-sm text-muted-foreground">ঋণ পরিশোধের স্মরণিকা পাঠানো হবে</p>
                   </div>
                   <Switch
-                    checked={formData.send_reminder}
-                    onCheckedChange={(checked) => handleInputChange('send_reminder', checked)}
+                    checked={formData.type === "given" && formData.due_date !== ""}
+                    onCheckedChange={(checked) => {
+                      // This is now controlled by the transaction type and due date
+                    }}
+                    disabled={formData.type !== "given" || formData.due_date === ""}
                   />
                 </div>
 
-                {formData.send_reminder && (
+                {formData.type === "given" && formData.due_date !== "" && (
                   <div className="space-y-3">
                     <Label className="text-base font-medium">স্মরণিকার ধরন</Label>
                     <div className="grid grid-cols-3 gap-2">

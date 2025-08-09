@@ -12,16 +12,18 @@ import { useNavigate } from "react-router-dom";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useState } from "react";
 import CustomerForm from "../CustomerForm";
+import { Customer } from "@/types";
+
 const QuickActionButtons = () => {
   const navigate = useNavigate();
 
   const [showAddDialog, setShowAddDialog] = useState(false);
  
- const [editingCustomer, setEditingCustomer] = useState<any>(null);
+ const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const { refetch } = useCustomers();
 
 
-  const handleEditCustomer = (customer: any) => {
+  const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
   };
 

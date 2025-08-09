@@ -1,46 +1,61 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { authApi, clearAuthToken, getAuthToken, setAuthToken, type AuthUser } from "@/lib/api";
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: (AuthUser & { email: string }) | null;
   loading: boolean;
+  login: (token: string) => Promise<void>;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  session: null,
-  loading: true,
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+  const hydrateUser = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setUser(null);
       setLoading(false);
-    });
+      return;
+    }
+    try {
+      const { user } = await authApi.profile();
+      setUser(user);
+    } catch {
+      clearAuthToken();
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    return () => subscription.unsubscribe();
+  useEffect(() => {
+    hydrateUser();
+    // Listen to storage changes (multi-tab logout)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'tk_auth_token') {
+        hydrateUser();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [hydrateUser]);
+
+  const login = useCallback(async (token: string) => {
+    setAuthToken(token);
+    await hydrateUser();
+  }, [hydrateUser]);
+
+  const logout = useCallback(() => {
+    clearAuthToken();
+    setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

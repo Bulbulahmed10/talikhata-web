@@ -63,7 +63,7 @@ const RecentTransactions = () => {
                   )}
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">{transaction.customers.name}</p>
+                  <p className="font-medium text-foreground">{transaction.customers?.name || 'Unknown Customer'}</p>
                   <p className="text-sm text-muted-foreground">{transaction.note || 'কোনো নোট নেই'}</p>
                 </div>
               </div>

@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+import { authApi } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
 
@@ -29,41 +30,22 @@ const Auth = () => {
     }
   }, []);
 
+  const { login } = useAuth();
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            business_name: businessName,
-            phone: phone,
-          }
-        }
-      });
-
-      if (error) {
+      const res = await authApi.register({ name: businessName || email.split('@')[0], email, password });
+      await login(res.token);
+      toast({ title: "সফল!", description: "আপনার অ্যাকাউন্ট তৈরি হয়েছে।" });
+    } catch (error) {
         toast({
           title: "সাইন আপ ত্রুটি",
-          description: error.message,
+          description: error instanceof Error ? error.message : "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "সফল!",
-          description: "আপনার অ্যাকাউন্ট তৈরি হয়েছে। অনুগ্রহ করে আপনার ইমেইল যাচাই করুন।",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "ত্রুটি",
-        description: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
-        variant: "destructive",
-      });
     }
 
     setLoading(false);
@@ -74,24 +56,8 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "লগিন ত্রুটি",
-          description: "ইমেইল বা পাসওয়ার্ড ভুল।",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "ত্রুটি",
-        description: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
-        variant: "destructive",
-      });
+      const res = await authApi.login({ email, password });
+      await login(res.token);
     }
 
     setLoading(false);
@@ -112,10 +78,11 @@ const Auth = () => {
         title: "সফল!",
         description: "পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।";
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -151,10 +118,11 @@ const Auth = () => {
 
       // Redirect to home page
       window.location.href = '/';
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "পাসওয়ার্ড আপডেট করতে সমস্যা হয়েছে।";
       toast({
         title: "ত্রুটি",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }

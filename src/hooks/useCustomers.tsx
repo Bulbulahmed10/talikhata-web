@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { customersApi } from "@/lib/api";
 
 interface Customer {
   id: string;
@@ -16,27 +16,23 @@ export const useCustomers = () => {
 
   const fetchCustomers = async () => {
     setLoading(true);
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setCustomers([]);
+    try {
+      const res = await customersApi.list({ limit: 10 });
+      const data = res.data || [];
+      // Map to expected shape
+      setCustomers(
+        data.map((c: any) => ({
+          id: c._id,
+          name: c.name,
+          phone: c.phone || null,
+          due_amount: c.due_amount ?? 0,
+          updated_at: c.updatedAt || new Date().toISOString(),
+          photo_url: c.photo_url || null,
+        }))
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-      .limit(10);
-
-    if (!error && data) {
-      setCustomers(data);
-    }
-    setLoading(false);
   };
 
   useEffect(() => {
