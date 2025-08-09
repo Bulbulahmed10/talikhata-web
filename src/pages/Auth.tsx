@@ -68,15 +68,10 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?mode=reset`,
-      });
-
-      if (error) throw error;
-
+      // Not implemented on backend yet; show info
       toast({
-        title: "সফল!",
-        description: "পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে।",
+        title: "শীঘ্রই আসছে",
+        description: "পাসওয়ার্ড রিসেট ইমেইল ব্যাকএন্ডে শীঘ্রই যুক্ত হবে।",
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে।";
@@ -105,18 +100,11 @@ const Auth = () => {
     }
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) throw error;
-
+      await authApi.changePassword({ currentPassword: '', newPassword });
       toast({
         title: "সফল!",
         description: "আপনার পাসওয়ার্ড আপডেট হয়েছে।",
       });
-
-      // Redirect to home page
       window.location.href = '/';
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "পাসওয়ার্ড আপডেট করতে সমস্যা হয়েছে।";

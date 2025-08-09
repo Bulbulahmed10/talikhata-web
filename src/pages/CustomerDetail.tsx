@@ -37,7 +37,7 @@ import { AnimatedCard, FadeIn, SlideIn } from "@/components/AnimatedCard";
 import { formatCurrency, formatTime, formatDueDate, getInitials, formatDate } from "@/utils/formatters";
 import { TransactionItem, StatCard } from "@/components/common";
 import { Transaction, Customer, SortOption } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
+// Supabase removed; using backend APIs via RTK Query
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -158,21 +158,8 @@ const CustomerDetail = () => {
       dispatch(removeTransaction(transactionId));
       dispatch(triggerAnimation('transaction-deleted'));
       
-      // Let the database trigger handle balance calculation
-      // Fetch updated customer data to get the new balance
-      const { data: updatedCustomer, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', id!)
-        .single();
-
-      if (customerError) {
-        console.error('Error fetching updated customer:', customerError);
-        throw new Error('গ্রাহকের তথ্য আপডেট করতে সমস্যা হয়েছে');
-      }
-
-      // The database trigger will handle balance calculation automatically
-      // No need to manually update Redux store here
+      // Balance is recalculated on backend; just refetch via RTK Query
+      await refetchTransactions();
       
       toast({
         title: "সফল!",
