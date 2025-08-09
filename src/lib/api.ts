@@ -44,7 +44,6 @@ export async function apiFetch<TResponse = unknown, TBody = unknown>(
   const response = await fetch(url, {
     method: options.method || 'GET',
     headers,
-    credentials: 'include',
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
