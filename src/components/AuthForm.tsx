@@ -9,6 +9,7 @@ import { Loader2, Store, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-rea
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface AuthFormProps {
   onSuccess?: () => void;
@@ -34,9 +35,20 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
   
   const { toast } = useToast();
   const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const isValidEmail = (val: string) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(val);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidEmail(signupEmail)) {
+      toast({ title: "ত্রুটি", description: "সঠিক ইমেইল লিখুন।", variant: "destructive" });
+      return;
+    }
+    if (signupPassword.length < 6) {
+      toast({ title: "ত্রুটি", description: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।", variant: "destructive" });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -48,6 +60,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
       await login(res.token);
       toast({ title: "সফল!", description: "আপনার অ্যাকাউন্ট তৈরি হয়েছে।" });
       onSuccess?.();
+      navigate('/');
     } catch (error) {
       toast({
         title: "সাইন আপ ত্রুটি",
@@ -61,12 +74,21 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValidEmail(email)) {
+      toast({ title: "ত্রুটি", description: "সঠিক ইমেইল লিখুন।", variant: "destructive" });
+      return;
+    }
+    if (!password) {
+      toast({ title: "ত্রুটি", description: "পাসওয়ার্ড লিখুন।", variant: "destructive" });
+      return;
+    }
     setLoading(true);
 
     try {
       const res = await authApi.login({ email, password });
       await login(res.token);
       onSuccess?.();
+      navigate('/');
     } catch (error) {
       toast({
         title: "লগিন ত্রুটি",
